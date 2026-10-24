@@ -1,0 +1,495 @@
+{
+    "1000": {
+        "name": "Salvador",
+        "coordinates": "12903",
+        "next_coordinates": "",
+        "sabotage_coordinates": "",
+        "food_ration_level": "normal",
+        "water_ration_level": "normal",
+        "isolated": false,
+        "destroyed": false,
+        "jumping": false,
+        "morale_level": 10,
+        "morale_rolled_this_turn": false,
+        "damage_taken_this_turn": 0,
+        "morale_roll_modifiers": {
+            "temp_morale_roll_modifier": 0,
+            "perm_morale_roll_modifier": 0
+        },
+        "resources": {
+            "food": 0,
+            "fuel": 0,
+            "materials": 0,
+            "ore": 0,
+            "water": 0
+        },
+        "ration_levels": {
+            "luxurious": {
+                "food": 4,
+                "water": 5
+            },
+            "increased": {
+                "food": 3,
+                "water": 3
+            },
+            "normal": {
+                "food": 2,
+                "water": 2
+            },
+            "low": {
+                "food": null,
+                "water": null
+            },
+            "minimum": {
+                "food": null,
+                "water": null
+            },
+            "critical": {
+                "food": 1,
+                "water": 1
+            },
+            "none": {
+                "food": 0,
+                "water": 0
+            }
+        },
+        "fuel_consumption": {
+            "short": 2,
+            "medium": 3,
+            "long": 4
+        },
+        "players": {},
+        "stations": {
+            "1010": {
+                "name": "Storage Area",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately discard 1 water. Discard 1 food at the beginning of each Team Phase.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1011": {
+                "name": "Bridge",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately send 1 random player on this vessel to a sickbay. -2 to morale rolls.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1012": {
+                "name": "Sickbay",
+                "description": "Heal 1 wounded crew (call control)",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "-1 to morale rolls.",
+                "alert_gm_on_use": true,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "medic",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 2
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1013": {
+                "name": "Sickbay",
+                "description": "Heal 1 wounded crew (call control)",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "-1 to morale rolls.",
+                "alert_gm_on_use": true,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "medic",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 2
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1014": {
+                "name": "Sickbay",
+                "description": "Heal 1 wounded crew (call control)",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "-1 to morale rolls.",
+                "alert_gm_on_use": true,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "medic",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 2
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1015": {
+                "name": "Sickbay",
+                "description": "Heal 1 wounded crew (call control)",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "-1 to morale rolls.",
+                "alert_gm_on_use": true,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "medic",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 2
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1016": {
+                "name": "Sickbay",
+                "description": "Heal 1 wounded crew (call control)",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "-1 to morale rolls.",
+                "alert_gm_on_use": true,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "medic",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 2
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "1017": {
+                "name": "Jump Drive",
+                "description": "Allows jumping.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": true,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Can still be used, but each jump has a 50% chance of failing; fuel spent on a failed jump is lost. (call control to crew)",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            }
+        },
+        "shuttles": {},
+        "units": {
+            "1070": {
+                "name": "Work Team",
+                "affiliation": "1000",
+                "damaged": false,
+                "exhausted": false
+            },
+            "1071": {
+                "name": "Work Team",
+                "affiliation": "1000",
+                "damaged": false,
+                "exhausted": false
+            },
+            "1072": {
+                "name": "Medical Team",
+                "affiliation": "1000",
+                "damaged": false,
+                "exhausted": false
+            },
+            "1073": {
+                "name": "Security Forces",
+                "affiliation": "1000",
+                "damaged": false,
+                "exhausted": false
+            }
+        },
+        "action_cards": {
+            "1040": {
+                "name": "Multi-Discipline Staff",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
+                "description": "Once per turn you may convert one medical trained crew to a science trained crew or vice-versa. The crew must be on the Salvador when you play this card."
+            },
+            "1041": {
+                "name": "Personal Attention",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Recover 1 player or crew from a sickbay immediately."
+            },
+            "1042": {
+                "name": "\"Do No Harm\"",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Play this card to make a secret attempt to put another player in a sickbay. Consult control to implement."
+            },
+            "1043": {
+                "name": "Flesh Wound",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Can only be played immediately after a crew token is wounded. Instead, the crew is not wounded."
+            },
+            "1044": {
+                "name": "Flesh Wound",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Can only be played immediately after a crew token is wounded. Instead, the crew is not wounded."
+            },
+            "1045": {
+                "name": "Medical Training",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
+                "description": "At the beginning of any turn, remove one medical crew and one untrained crew from your vessel and put them on this card. Next turn both return and the untrained crew gains medical training."
+            },
+            "1046": {
+                "name": "Stim Pack",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "To play, use 1 medical-trained crew and spend 1 material on the Salvador. Any player on the Salvador team may play this on any operated station that produces a resource; the station produces 2 additional units of that resource this turn."
+            },
+            "1047": {
+                "name": "Stim Pack",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "To play, use 1 medical-trained crew and spend 1 material on the Salvador. Any player on the Salvador team may play this on any operated station that produces a resource; the station produces 2 additional units of that resource this turn."
+            },
+            "1048": {
+                "name": "Stim Pack",
+                "affiliation": "1000",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "To play, use 1 medical-trained crew and spend 1 material on the Salvador. Any player on the Salvador team may play this on any operated station that produces a resource; the station produces 2 additional units of that resource this turn."
+            }
+        }
+    }
+}

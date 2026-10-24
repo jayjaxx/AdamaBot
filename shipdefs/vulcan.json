@@ -1,0 +1,566 @@
+{
+    "0900": {
+        "name": "Vulcan",
+        "coordinates": "12903",
+        "next_coordinates": "",
+        "sabotage_coordinates": "",
+        "food_ration_level": "normal",
+        "water_ration_level": "normal",
+        "isolated": false,
+        "destroyed": false,
+        "jumping": false,
+        "morale_level": 10,
+        "morale_rolled_this_turn": false,
+        "damage_taken_this_turn": 0,
+        "morale_roll_modifiers": {
+            "temp_morale_roll_modifier": 0,
+            "perm_morale_roll_modifier": 0
+        },
+        "resources": {
+            "food": 0,
+            "fuel": 0,
+            "materials": 0,
+            "ore": 0,
+            "water": 0
+        },
+        "ration_levels": {
+            "luxurious": {
+                "food": 4,
+                "water": 5
+            },
+            "increased": {
+                "food": 3,
+                "water": 3
+            },
+            "normal": {
+                "food": 2,
+                "water": 2
+            },
+            "low": {
+                "food": null,
+                "water": null
+            },
+            "minimum": {
+                "food": null,
+                "water": null
+            },
+            "critical": {
+                "food": 1,
+                "water": 1
+            },
+            "none": {
+                "food": 0,
+                "water": 0
+            }
+        },
+        "fuel_consumption": {
+            "short": 2,
+            "medium": 3,
+            "long": 4
+        },
+        "players": {},
+        "stations": {
+            "0910": {
+                "name": "Cells",
+                "description": "Cells have no specific function. If the total number of riot counters on all \"Cells\" stations reaches 2, immediately remove the riots and damage one random \"Cells\" station (call control).",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "See special rule for damaged Cells and manned Guard Quarters.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0911": {
+                "name": "Cells",
+                "description": "Cells have no specific function. If the total number of riot counters on all \"Cells\" stations reaches 2, immediately remove the riots and damage one random \"Cells\" station (call control).",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "See special rule for damaged Cells and manned Guard Quarters.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0912": {
+                "name": "Cells",
+                "description": "Cells have no specific function. If the total number of riot counters on all \"Cells\" stations reaches 2, immediately remove the riots and damage one random \"Cells\" station (call control).",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "See special rule for damaged Cells and manned Guard Quarters.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0913": {
+                "name": "Cells",
+                "description": "Cells have no specific function. If the total number of riot counters on all \"Cells\" stations reaches 2, immediately remove the riots and damage one random \"Cells\" station (call control).",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "See special rule for damaged Cells and manned Guard Quarters.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0914": {
+                "name": "Bridge",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately send 1 random player on this vessel to a sickbay. -2 to morale rolls.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0915": {
+                "name": "Storage Area",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately discard 1 water. Discard 1 food at the beginning of each Team Phase.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0916": {
+                "name": "Weapon Batteries",
+                "description": "Once each Wolf Attack fleet phase roll 1d6: 2-5 = destroy 1 squadron, 6 = destroy 2. Can only be used in the same quadrant as the Vulcan.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": true,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0917": {
+                "name": "Guard Quarters",
+                "description": "Station manned. If the number of damaged \"Cells\" stations is double or more than the number of manned \"Guard Quarters\" stations, you lose control of this vessel (call control). Damaged Guard Quarters can never be manned.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "See special rule for damaged Cells and manned Guard Quarters. Damaged Guard Quarters can never be manned.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0918": {
+                "name": "Guard Quarters",
+                "description": "Station manned. If the number of damaged \"Cells\" stations is double or more than the number of manned \"Guard Quarters\" stations, you lose control of this vessel (call control). Damaged Guard Quarters can never be manned.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "See special rule for damaged Cells and manned Guard Quarters. Damaged Guard Quarters can never be manned.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0919": {
+                "name": "Jump Drive",
+                "description": "Allows jumping.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": true,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Can still be used, but each jump has a 50% chance of failing; fuel spent on a failed jump is lost. (call control to crew)",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            }
+        },
+        "shuttles": {},
+        "units": {
+            "0970": {
+                "name": "Work Team",
+                "affiliation": "0900",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0971": {
+                "name": "Work Team",
+                "affiliation": "0900",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0972": {
+                "name": "Security Forces",
+                "affiliation": "0900",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0973": {
+                "name": "Security Forces",
+                "affiliation": "0900",
+                "damaged": false,
+                "exhausted": false
+            }
+        },
+        "action_cards": {
+            "0940": {
+                "name": "Underworld Connections",
+                "affiliation": "0900",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "In a reasonable context, handing this card to control will make things more likely to go your way during a control-adjudicated situation."
+            },
+            "0941": {
+                "name": "Underworld Connections",
+                "affiliation": "0900",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "In a reasonable context, handing this card to control will make things more likely to go your way during a control-adjudicated situation."
+            },
+            "0942": {
+                "name": "\"You Call This Tough Conditions?\"",
+                "affiliation": "0900",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Play at the beginning of a turn on either the Vulcan or any vessel with a Prisoner Labour card operating a station. Halve (rounding down) all of that vessel's negative morale roll modifiers at the end of that turn."
+            },
+            "0943": {
+                "name": "\"You Call This Tough Conditions?\"",
+                "affiliation": "0900",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Play at the beginning of a turn on either the Vulcan or any vessel with a Prisoner Labour card operating a station. Halve (rounding down) all of that vessel's negative morale roll modifiers at the end of that turn."
+            },
+            "0944": {
+                "name": "Prisoner Labour",
+                "affiliation": "0900",
+                "affiliation_restricted": false,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "This card can be handed to any player and used by them as an untrained crew for the purposes of operating a station (cannot be used on Guard Quarters). At the end of the turn, return this card to the Warden, then roll a D6; on a 1 a riot is placed on the station this card was used to operate. (call control)"
+            },
+            "0945": {
+                "name": "Prisoner Labour",
+                "affiliation": "0900",
+                "affiliation_restricted": false,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "This card can be handed to any player and used by them as an untrained crew for the purposes of operating a station (cannot be used on Guard Quarters). At the end of the turn, return this card to the Warden, then roll a D6; on a 1 a riot is placed on the station this card was used to operate. (call control)"
+            },
+            "0946": {
+                "name": "Prisoner Labour",
+                "affiliation": "0900",
+                "affiliation_restricted": false,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "This card can be handed to any player and used by them as an untrained crew for the purposes of operating a station (cannot be used on Guard Quarters). At the end of the turn, return this card to the Warden, then roll a D6; on a 1 a riot is placed on the station this card was used to operate. (call control)"
+            },
+            "0947": {
+                "name": "Prisoner Labour",
+                "affiliation": "0900",
+                "affiliation_restricted": false,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "This card can be handed to any player and used by them as an untrained crew for the purposes of operating a station (cannot be used on Guard Quarters). At the end of the turn, return this card to the Warden, then roll a D6; on a 1 a riot is placed on the station this card was used to operate. (call control)"
+            }
+        }
+    }
+}

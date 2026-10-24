@@ -1,0 +1,704 @@
+{
+    "0600": {
+        "name": "Lucas",
+        "coordinates": "12903",
+        "next_coordinates": "",
+        "sabotage_coordinates": "",
+        "food_ration_level": "normal",
+        "water_ration_level": "normal",
+        "isolated": false,
+        "destroyed": false,
+        "jumping": false,
+        "morale_level": 10,
+        "morale_rolled_this_turn": false,
+        "damage_taken_this_turn": 0,
+        "morale_roll_modifiers": {
+            "temp_morale_roll_modifier": 0,
+            "perm_morale_roll_modifier": 0
+        },
+        "resources": {
+            "food": 0,
+            "fuel": 0,
+            "materials": 1,
+            "ore": 0,
+            "water": 6
+        },
+        "ration_levels": {
+            "luxurious": {
+                "food": 9,
+                "water": 9
+            },
+            "increased": {
+                "food": 8,
+                "water": 7
+            },
+            "normal": {
+                "food": 6,
+                "water": 4
+            },
+            "low": {
+                "food": 5,
+                "water": 3
+            },
+            "minimum": {
+                "food": 4,
+                "water": 2
+            },
+            "critical": {
+                "food": 2,
+                "water": 1
+            },
+            "none": {
+                "food": 0,
+                "water": 0
+            }
+        },
+        "fuel_consumption": {
+            "short": 4,
+            "medium": 6,
+            "long": 8
+        },
+        "players": {},
+        "stations": {
+            "0610": {
+                "name": "Food Storage",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately discard 1 food. Discard 1 food at the beginning of each Team Phase.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0611": {
+                "name": "Water Storage",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately discard 5 water. Discard 1 water at the beginning of each Team Phase.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0612": {
+                "name": "Fuel Storage",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately damage one other random station and discard 2 fuel. This vessel cannot FTL jump.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0613": {
+                "name": "Bridge",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Immediately send 1 random player on this vessel to a sickbay. -2 to morale rolls.",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0614": {
+                "name": "Food Synthesiser",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 2,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 2,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0615": {
+                "name": "Food Synthesiser",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 2,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 2,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0616": {
+                "name": "H-1 Collector 3.0",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 6
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0617": {
+                "name": "H-1 Collector 3.0",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 6
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0618": {
+                "name": "H-1 Collector 3.0",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 6
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0619": {
+                "name": "H-1 Collector 3.0",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 6
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0620": {
+                "name": "H-1 Collector 3.0",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 6
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0621": {
+                "name": "H-1 Collector 3.0",
+                "description": "",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 6
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "0622": {
+                "name": "Jump Drive",
+                "description": "Allows jumping.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": true,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "Can still be used, but each jump has a 50% chance of failing; fuel spent on a failed jump is lost. (call control to crew)",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 3,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            }
+        },
+        "shuttles": {
+            "0601": {
+                "name": "Phoenix",
+                "intercepted": false,
+                "clearance": false,
+                "launching": false,
+                "resources": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "units": {}
+            }
+        },
+        "units": {
+            "0670": {
+                "name": "Work Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0671": {
+                "name": "Work Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0672": {
+                "name": "Work Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0673": {
+                "name": "Work Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0674": {
+                "name": "Work Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0675": {
+                "name": "Work Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0676": {
+                "name": "Engineering Team",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0677": {
+                "name": "Security Forces",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            },
+            "0678": {
+                "name": "Security Forces",
+                "affiliation": "0600",
+                "damaged": false,
+                "exhausted": false
+            }
+        },
+        "action_cards": {
+            "0640": {
+                "name": "Engineer Training",
+                "affiliation": "0600",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
+                "description": "At the beginning of any turn, remove one engineer crew and one untrained crew from your vessel and put them on this card. Next turn both return and the untrained crew gains engineer training."
+            },
+            "0641": {
+                "name": "Needs of the Fleet",
+                "affiliation": "0600",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
+                "description": "You may produce 3 more water but take a -3 penalty to your morale roll this turn. Cannot be played on a turn where you produce no water from stations."
+            },
+            "0642": {
+                "name": "Engineering Prowess",
+                "affiliation": "0600",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Reduce the materials cost of a station or Fighter Squadron repair by half (rounding up)."
+            },
+            "0643": {
+                "name": "Engineering Prowess",
+                "affiliation": "0600",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Reduce the materials cost of a station or Fighter Squadron repair by half (rounding up)."
+            },
+            "0644": {
+                "name": "Applied Science Qualifications",
+                "affiliation": "0600",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
+                "description": "Once per turn you may convert one engineer trained crew to a science trained crew or vice-versa. The crew must be on the Lucas when you play this card."
+            }
+        }
+    }
+}

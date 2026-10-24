@@ -4,16 +4,17 @@
         "coordinates": "12903",
         "next_coordinates": "",
         "sabotage_coordinates": "",
-        "food_ration_level": "none",
-        "water_ration_level": "none",
+        "food_ration_level": "normal",
+        "water_ration_level": "normal",
         "isolated": false,
-        "lockdown": false,
+        "destroyed": false,
+        "jumping": false,
         "morale_level": 10,
-        "morale_role_modifiers": {
+        "morale_rolled_this_turn": false,
+        "damage_taken_this_turn": 0,
+        "morale_roll_modifiers": {
             "temp_morale_roll_modifier": 0,
-            "perm_morale_roll_modifier": 0,
-            "fleet_temp_morale_roll_modifier": 0,
-            "fleet_perm_morale_roll_modifier": 0
+            "perm_morale_roll_modifier": 0
         },
         "resources": {
             "food": 8,
@@ -70,14 +71,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -87,10 +89,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0111": {
                 "name": "Hull Plating",
@@ -103,14 +111,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -120,10 +129,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0112": {
                 "name": "Hull Plating",
@@ -136,14 +151,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -153,10 +169,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0113": {
                 "name": "Hull Plating",
@@ -169,14 +191,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -186,10 +209,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0114": {
                 "name": "Hull Plating",
@@ -202,14 +231,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -219,10 +249,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0115": {
                 "name": "Hull Plating",
@@ -235,14 +271,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -252,10 +289,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0116": {
                 "name": "Hull Plating",
@@ -268,14 +311,15 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -285,10 +329,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0117": {
                 "name": "Food Storage",
@@ -298,17 +348,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Immediately discard 3 food. Discard 1 food at the beginning of each turn.",
+                "damaged_description": "Immediately discard 3 food. Discard 1 food at the beginning of each Team Phase.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -318,10 +369,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0118": {
                 "name": "Water Storage",
@@ -331,17 +388,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Immediately discard 2 water. Discard 1 water at the beginning of each turn.",
+                "damaged_description": "Immediately discard 2 water. Discard 1 water at the beginning of each Team Phase.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -351,10 +409,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0119": {
                 "name": "Fuel Storage",
@@ -364,17 +428,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Immediately discard 2 fuel and suffer 1 damage. Jumps have 50% chance of failing.",
+                "damaged_description": "Immediately damage one other random station and discard 2 fuel. Each jump has a 50% chance of failing; fuel spent on a failed jump is lost.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -384,10 +449,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 2,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0120": {
                 "name": "Munitions Storage",
@@ -397,17 +468,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Immediately suffer 1 damage. Cannot use weapon batteries.",
+                "damaged_description": "Immediately damage one other random station. Cannot use Weapon Batteries.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -417,10 +489,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 2
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0121": {
                 "name": "Communications",
@@ -430,17 +508,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "3 Aegis crewmembers must be on the ship at all times.",
+                "damaged_description": "At least 3 Aegis crewmembers must be aboard the Aegis at all times.",
                 "alert_gm_on_use": false,
-                "alert_gm_on_damage": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -450,10 +529,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 2
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0122": {
                 "name": "Brig",
@@ -463,17 +548,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "-1 to fleet morale rolls.",
+                "damaged_description": "Inform control; detained players may have a chance to escape. -1 to fleet morale at the end of each turn.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -483,10 +569,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
-                    "crew_amount": 2
-                }
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0123": {
                 "name": "Command Bridge",
@@ -496,17 +588,18 @@
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Immediately wound 1 random player on the Aegis. -1 to fleet morale rolls.",
+                "damaged_description": "Immediately send 1 random player on the Aegis to a sickbay. -1 to fleet morale at the end of each turn.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0,
-                    "crew_keyword": "team",
-                    "crew_amount": 1
+                    "crew_keyword": "",
+                    "crew_amount": 0
                 },
                 "output": {
                     "food": 0,
@@ -516,10 +609,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0124": {
                 "name": "Weapon Batteries",
@@ -532,6 +631,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -549,10 +649,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 2,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0125": {
                 "name": "Weapon Batteries",
@@ -565,6 +671,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -582,10 +689,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 2,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0126": {
                 "name": "Jump Drive",
@@ -595,9 +708,10 @@
                 "startofturn": true,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Can still be used, but jumps have a 50% chance of failure. (call control to crew)",
+                "damaged_description": "Can still be used, but each jump has a 50% chance of failing; fuel spent on a failed jump is lost. (call control to crew)",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -615,10 +729,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 3,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0127": {
                 "name": "Sickbay",
@@ -630,7 +750,8 @@
                 "damaged": false,
                 "damaged_description": "-1 to ship morale rolls",
                 "alert_gm_on_use": true,
-                "alert_gm_on_damage": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -648,10 +769,16 @@
                     "water": 0
                 },
                 "repair_cost": {
-                    "materials": 2,
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
-                    "crew_amount": 1
-                }
+                    "crew_amount": 2
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0128": {
                 "name": "Hangar Bay",
@@ -663,7 +790,8 @@
                 "damaged": false,
                 "damaged_description": "Immediately damage 1 fighter. Can only activate 2 fighters maximum.",
                 "alert_gm_on_use": false,
-                "alert_gm_on_damage": false,
+                "alert_gm_on_damage": true,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -681,10 +809,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 2,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 2
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0129": {
                 "name": "H-1 Collector 3.0",
@@ -697,6 +831,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -714,10 +849,16 @@
                     "water": 6
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 3,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0130": {
                 "name": "H-1 Collector 3.0",
@@ -730,6 +871,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -747,10 +889,16 @@
                     "water": 6
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 3,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0131": {
                 "name": "H-1 Collector 3.0",
@@ -763,6 +911,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -780,10 +929,16 @@
                     "water": 6
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 3,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0132": {
                 "name": "Food Synthesiser 3.0",
@@ -796,6 +951,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -813,14 +969,19 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 3,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             },
             "0133": {
                 "name": "Food Synthesiser 3.0",
-                "ID": "0133",
                 "description": "",
                 "usable": true,
                 "reusable": false,
@@ -830,6 +991,7 @@
                 "damaged_description": "",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -847,10 +1009,16 @@
                     "water": 0
                 },
                 "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
                     "materials": 3,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
+                },
+                "modes": [],
+                "units_used_this_turn": []
             }
         },
         "shuttles": {
@@ -858,140 +1026,167 @@
                 "name": "Cyclops",
                 "intercepted": false,
                 "clearance": false,
+                "launching": false,
                 "resources": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0
-                }
+                },
+                "units": {}
             },
             "0102": {
                 "name": "Blackbird",
                 "intercepted": false,
                 "clearance": false,
+                "launching": false,
                 "resources": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0
-                }
+                },
+                "units": {}
             }
         },
         "units": {
             "0170": {
                 "name": "Work Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0171": {
                 "name": "Work Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0172": {
                 "name": "Work Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0173": {
                 "name": "Work Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0174": {
                 "name": "Medical Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0175": {
                 "name": "Piloting Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0176": {
                 "name": "Piloting Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0177": {
                 "name": "Piloting Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0178": {
                 "name": "Engineering Team",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0179": {
                 "name": "Marine Forces",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0180": {
                 "name": "Marine Forces",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0181": {
                 "name": "Marine Forces",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0182": {
                 "name": "Marine Forces",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0183": {
                 "name": "Marine Forces",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0184": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0185": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0186": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0187": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0188": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0189": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0190": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0191": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             },
             "0192": {
                 "name": "Fighter Squadron",
+                "affiliation": "0100",
                 "damaged": false,
                 "exhausted": false
             }
@@ -999,91 +1194,120 @@
         "action_cards": {
             "0140": {
                 "name": "Authorize Use of Lethal Force",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": true,
                 "once_per_turn": false,
                 "exhausted": false,
-                "affiliation_restricted": true,
                 "description": "+2 to disperse riots this turn. Reduce fleet morale by 1."
             },
             "0141": {
                 "name": "Security Lockdown",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": false,
                 "once_per_turn": false,
                 "exhausted": false,
-                "affiliation_restricted": true,
-                "description": "Play to prevent any players from moving to or from the Aegis until end of turn."
+                "description": "Play to immediately prevent any players moving to or from the Aegis until the end of the turn (including the Team Phase)."
             },
             "0142": {
                 "name": "Security Lockdown",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": false,
                 "once_per_turn": false,
                 "exhausted": false,
-                "affiliation_restricted": true,
-                "description": "Play to prevent any players from moving to or from the Aegis until end of turn."
+                "description": "Play to immediately prevent any players moving to or from the Aegis until the end of the turn (including the Team Phase)."
             },
             "0143": {
                 "name": "Personal Bodyguard Detail",
+                "affiliation": "0100",
+                "affiliation_restricted": false,
                 "retained": false,
                 "once_per_turn": false,
                 "exhausted": false,
-                "affiliation_restricted": false,
                 "description": "Play this card to improve your chances against physical danger. This card may be handed to players of other ships."
             },
             "0144": {
                 "name": "Superior Training",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": true,
                 "once_per_turn": true,
                 "exhausted": false,
-                "affiliation_restricted": true,
                 "description": "Play to reroll any die except the morale roll."
             },
             "0145": {
                 "name": "Into the Pilot Seat",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": true,
                 "once_per_turn": false,
                 "exhausted": false,
-                "affiliation_restricted": true,
                 "description": "Can only be used by the FWCO. At the start of a wolf attack you may choose 1 Aegis fighter unit. This unit activates twice each fleet round. If it is damaged or destroyed during the attack you are wounded."
             },
             "0146": {
                 "name": "Repair Fighter Squadron",
-                "retained": true,
-                "once_per_turn": false,
-                "exhausted": false,
+                "affiliation": "0100",
                 "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
                 "description": "Use 1 engineer and 2 materials to repair 1 fighter at the start of next turn. Can only be used if the Aegis Hangar Bay is intact."
             },
             "0147": {
                 "name": "Build Fighter Squadron",
-                "retained": true,
-                "once_per_turn": false,
-                "exhausted": false,
+                "affiliation": "0100",
                 "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": true,
+                "exhausted": false,
                 "description": "Use 2 engineers and 5 materials to gain 1 fighter at the start of next turn. Can only be used if the Aegis Hangar Bay is intact."
             },
             "0148": {
                 "name": "Reserves",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": false,
                 "once_per_turn": false,
                 "exhausted": false,
-                "affiliation_restricted": true,
                 "description": "Immediately heal 1 marine unit currently on the Aegis."
             },
             "0149": {
                 "name": "Personnel Adjustment",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": true,
                 "once_per_turn": true,
                 "exhausted": false,
-                "affiliation_restricted": true,
-                "description": "Remove 1 crew and pay 1 materials to gain 1 security unit OR remove 1 security unit and gain 1 crew."
+                "description": "Remove 1 crew and pay 1 materials to gain 1 security unit (not marines), OR remove 1 security unit and gain 1 crew."
             },
             "0150": {
                 "name": "Pilot Training",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
                 "retained": true,
                 "once_per_turn": true,
                 "exhausted": false,
-                "affiliation_restricted": true,
                 "description": "Use at the start of a turn and exhaust 1 pilot and 1 work team. Next turn the work team becomes a piloting team."
+            },
+            "0151": {
+                "name": "Pull Some Strings",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "Can only be played by the Admiral. In a reasonable context, handing this card to control will make things more likely to go your way during a control-adjudicated situation."
+            },
+            "0152": {
+                "name": "Scouting Party",
+                "affiliation": "0100",
+                "affiliation_restricted": true,
+                "retained": true,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "This card can be played at any time. When you play this card you must spend 3 fuel. Draw one additional Destination card."
             }
         }
     }
