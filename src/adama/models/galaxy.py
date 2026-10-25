@@ -38,6 +38,23 @@ class Coordinates:
 		return cls(coordinates=coordinates, **data)
 
 
+@dataclass(eq=False)
+class Launch:
+	"""A shuttle launch counting down. Not saved: a restart cancels it."""
+
+	shuttle_id: str
+	player_id: str
+	origin_id: str
+	destination_id: str
+
+
+@dataclass(eq=False)
+class Jump:
+	"""A jump counting down. Not saved: a restart cancels it."""
+
+	ship_id: str
+
+
 @dataclass
 class DiscordState:
 	"""Discord IDs the bot has created or must remember. Not part of the game rules."""
@@ -109,6 +126,11 @@ class Galaxy:
 
 	discord: DiscordState = field(default_factory=DiscordState)
 
+	# Countdowns in progress, keyed by shuttle and ship ID. A countdown finishes only if
+	# its entry is still the same object when the timer ends.
+	launches: dict[str, Launch] = field(default_factory=dict, repr=False)
+	jumps: dict[str, Jump] = field(default_factory=dict, repr=False)
+
 	@property
 	def started(self) -> bool:
 		return self.state == STATE_IN_PROGRESS
@@ -150,6 +172,13 @@ class Galaxy:
 		for ship in self.ships.values():
 			for shuttle in ship.shuttles.values():
 				yield ship, shuttle
+
+	def find_shuttle(self, name: str) -> tuple[Ship, Shuttle] | None:
+		folded = name.casefold()
+		for ship, shuttle in self.iter_shuttles():
+			if shuttle.name.casefold() == folded:
+				return ship, shuttle
+		return None
 
 	def iter_units(self) -> Iterator[Unit]:
 		for ship in self.ships.values():

@@ -10,6 +10,19 @@ CONTROL = "control"
 BROADCAST = "broadcast"
 
 
+def sentence(text: str) -> str:
+	"""Capitalises the first letter, leaving the rest alone."""
+	return text[:1].upper() + text[1:]
+
+
+def isolation(ship_name: str) -> str:
+	"""What players are told whenever isolation stops them (lower-case start)."""
+	return (
+		f"the {ship_name} has been isolated by control while they deal with an event. "
+		"It should be unisolated shortly."
+	)
+
+
 class GameError(Exception):
 	"""A rule stopped the command. The message is shown to the user who ran it."""
 

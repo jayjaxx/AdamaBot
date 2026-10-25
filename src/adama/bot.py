@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import discord
@@ -15,7 +16,7 @@ from adama.status import split_message
 logger = logging.getLogger()
 
 # Commands that still work in the otherwise blind #starting-games.
-STARTING_GAMES_COMMANDS = {"startinitialization"}
+STARTING_GAMES_COMMANDS = {"startinitialization", "gm"}
 # The only commands brigged and dead players can use.
 BRIGGED_COMMANDS = {"status", "roll", "control", "help"}
 DEAD_COMMANDS = {"control", "help"}
@@ -106,6 +107,12 @@ class AdamaTree(app_commands.CommandTree):
 			logger.exception("Could not report an error to the user")
 
 
+SHUTDOWN_ALERT = (
+	"@everyone **ADAMA is shutting down.** Commands won't work until it has been "
+	"restarted, so please don't send any until then. It should be back shortly."
+)
+
+
 class AdamaBot(commands.Bot):
 	def __init__(
 		self, config: GlobalConfig, intents=discord.Intents.default(), container=None
@@ -144,7 +151,26 @@ class AdamaBot(commands.Bot):
 		time_taken = discord.utils.utcnow() - interaction.created_at
 		logger.info(f"{interaction.user.name} ran /{command.name} in {time_taken}")
 
+	async def announce_shutdown(self) -> None:
+		"""Pings everyone in each server's #control-broadcasts that the bot is going down."""
+		everyone = discord.AllowedMentions(everyone=True)
+		for guild in self.guilds:
+			galaxy = self.container.services.galaxy.get(guild.id)
+			channel_id = galaxy.discord.channels.get(ch.CONTROL_BROADCASTS)
+			channel = guild.get_channel(channel_id) if channel_id else None
+			if not isinstance(channel, discord.TextChannel):
+				continue
+			try:
+				await channel.send(SHUTDOWN_ALERT, allowed_mentions=everyone)
+			except discord.HTTPException:
+				logger.warning("Couldn't post the shutdown alert in %s", guild.name)
+
 	async def close(self):
+		if self.is_ready() and not self.is_closed():
+			try:
+				await asyncio.wait_for(self.announce_shutdown(), timeout=15)
+			except TimeoutError:
+				logger.warning("Timed out posting the shutdown alerts")
 		services = self.container.services
 		fields = services.__dataclass_fields__
 		for field in fields:

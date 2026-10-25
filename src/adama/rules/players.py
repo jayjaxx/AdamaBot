@@ -8,7 +8,17 @@ from adama.config import RolesConfig
 from adama.models.galaxy import STATE_IN_PROGRESS, STATE_INITIALIZING, Galaxy
 from adama.models.player import LOCATION_BRIG, LOCATION_COMBAT, Player
 from adama.models.ship import Ship
-from adama.rules import BRIDGE, BROADCAST, CONTROL, HANGAR, PDA, GameError, Notice
+from adama.rules import (
+	BRIDGE,
+	BROADCAST,
+	CONTROL,
+	HANGAR,
+	PDA,
+	GameError,
+	Notice,
+	isolation,
+	sentence,
+)
 
 
 def mention(player: Player) -> str:
@@ -165,6 +175,8 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 	"""/travel: moves the player to a ship at the same coordinates, or into combat."""
 	if player.wounded:
 		raise GameError("You're wounded and can't travel.")
+	if any(launch.player_id == player.id for launch in galaxy.launches.values()):
+		raise GameError("You're launching a shuttle.")
 	in_combat = player.location == LOCATION_COMBAT
 	origin = current_ship(galaxy, player)
 	if origin is None or player.location == LOCATION_BRIG:
@@ -180,7 +192,7 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 				"Combat can only be entered by first responders during a lockdown."
 			)
 		if origin.isolated:
-			raise GameError(f"The {origin.name} is isolated.")
+			raise GameError(sentence(isolation(origin.name)))
 		notices.append(
 			Notice(HANGAR, f"{mention(player)} is leaving for combat.", origin.id)
 		)
@@ -197,11 +209,11 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 	if dest.coordinates != origin.coordinates:
 		raise GameError(f"The {dest.name} isn't at your coordinates.")
 	if dest.isolated:
-		raise GameError(f"The {dest.name} is isolated.")
+		raise GameError(sentence(isolation(dest.name)))
 	# A player in combat may travel to any ship at those coordinates.
 	if not in_combat:
 		if origin.isolated:
-			raise GameError(f"The {origin.name} is isolated.")
+			raise GameError(sentence(isolation(origin.name)))
 		if coords.locked_down:
 			raise GameError(
 				f"{origin.coordinates} is in lockdown: nobody can travel between ships."
@@ -213,6 +225,25 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 		)
 	_arrive(player, dest, notices)
 	return notices
+
+
+def _drop_launch(galaxy: Galaxy, player: Player, notices: list[Notice]) -> None:
+	"""Cancels any shuttle launch the player is flying."""
+	for shuttle_id, launch in list(galaxy.launches.items()):
+		if launch.player_id != player.id:
+			continue
+		del galaxy.launches[shuttle_id]
+		origin = galaxy.ships.get(launch.origin_id)
+		shuttle = origin.shuttles.get(shuttle_id) if origin else None
+		if shuttle is not None:
+			shuttle.launching = False
+			notices.append(
+				Notice(
+					HANGAR,
+					f"The launch of {shuttle.name} was aborted: its pilot was moved by control.",
+					launch.origin_id,
+				)
+			)
 
 
 def teleport(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
@@ -234,6 +265,7 @@ def teleport(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 			raise GameError(f"There is no lockdown at {origin.coordinates}.")
 		if player.location == LOCATION_COMBAT:
 			raise GameError(f"{mention(player)} is already in combat.")
+		_drop_launch(galaxy, player, notices)
 		notices.append(Notice(HANGAR, f"{mention(player)} is leaving.", origin.id))
 		_enter_combat(player, origin, notices)
 		return notices
@@ -243,6 +275,7 @@ def teleport(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 		raise GameError(f'There is no ship named "{destination}".')
 	if dest.id == player.location:
 		raise GameError(f"{mention(player)} is already aboard the {dest.name}.")
+	_drop_launch(galaxy, player, notices)
 	if origin is not None and player.location != LOCATION_COMBAT:
 		notices.append(Notice(HANGAR, f"{mention(player)} is leaving.", origin.id))
 	_arrive(player, dest, notices)

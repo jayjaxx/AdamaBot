@@ -39,6 +39,14 @@ PLAYER_COMMANDS = {
 	"disperse",
 	"setrationlevel",
 	"moraleroll",
+	"launch",
+	"intercept",
+	"clearance",
+	"revoke",
+	"jump",
+	"abort",
+	"setcoords",
+	"checkcoords",
 }
 GM_COMMANDS = {
 	"addresource",
@@ -68,6 +76,13 @@ GM_COMMANDS = {
 	"endgame",
 	"gmhelp",
 	"shutdown",
+	"subcoords",
+	"clearsubbedcoords",
+	"teleportship",
+	"isolate",
+	"unisolate",
+	"shuttle",
+	"ship",
 }
 
 
@@ -90,6 +105,21 @@ def test_every_command_registers():
 		assert commands[name].extras.get("gm"), name
 	for name in PLAYER_COMMANDS:
 		assert not commands[name].extras.get("gm"), name
+	# Discord allows a bot at most 100 top-level slash commands.
+	assert len(commands) <= 100
+
+
+def test_groups_are_control_only():
+	bot = make_bot()
+	asyncio.run(load_cogs(bot))
+	shuttle = bot.tree.get_command("shuttle")
+	assert isinstance(shuttle, discord.app_commands.Group)
+	assert {c.name for c in shuttle.commands} == {"conjure", "destroy", "teleport"}
+	for group in ("shuttle", "ship"):
+		command = bot.tree.get_command(group)
+		assert isinstance(command, discord.app_commands.Group)
+		for sub in command.commands:
+			assert sub.checks, sub.qualified_name
 
 
 def test_loadship_takes_up_to_ten_files():
@@ -125,6 +155,7 @@ def test_blind_channels():
 	assert not is_blind(
 		fake_interaction(text_channel("starting-games"), "startinitialization")
 	)
+	assert not is_blind(fake_interaction(text_channel("starting-games"), "gm"))
 	assert not is_blind(fake_interaction(text_channel("aegis-bridge")))
 	assert is_blind(fake_interaction(object.__new__(discord.VoiceChannel)))
 
@@ -155,7 +186,7 @@ def test_status_views_render_every_ship():
 	hangar = hangar_status(galaxy, aegis)
 	assert "**Crew aboard:** <@42>" in hangar
 	assert "**Visitors aboard:** <@43>" in hangar
-	assert "Cyclops, Blackbird" in hangar
+	assert "- Cyclops: " in hangar and "- Blackbird: " in hangar
 	assert "Aegis" in pda_status(galaxy, galaxy.players["0001"])
 
 
@@ -229,3 +260,12 @@ def test_recognises_leftover_ship_and_pda_categories():
 	assert not is_ship_category("General", {"general"})
 	assert is_pda_category("PDAs") and is_pda_category("PDAs 3")
 	assert not is_pda_category("PDAs and more")
+
+
+def test_default_fleet_loads_when_no_files_are_attached():
+	from adama.cogs.game import default_ship_files
+
+	files = default_ship_files()
+	assert len(files) == 11
+	ships, problems = validate_ship_files(files, Galaxy(1))
+	assert not problems and len(ships) == 11

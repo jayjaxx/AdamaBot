@@ -7,10 +7,12 @@ from discord.ext import commands
 
 from adama import channels as ch
 from adama import discord_ops as ops
+from adama.constants import DEFAULT_SHIPS_DIR
 from adama.bot import AdamaBot, reply
 from adama.models.galaxy import STATE_IDLE, STATE_INITIALIZING, Galaxy
 from adama.models.ship import Ship
 from adama.perms import UserError, control_only, game_starter_only, is_gm
+from adama.rules.shuttles import drop_stale_countdowns
 from adama.rules.players import LobbyMember, start_game
 from adama.shipfiles import ShipFile, validate_ship_files
 from adama.status import ship_summary
@@ -27,6 +29,14 @@ Attachment = discord.Attachment | None
 
 async def read_files(attachments: list[Attachment]) -> list[ShipFile]:
 	return [ShipFile(a.filename, await a.read()) for a in attachments if a is not None]
+
+
+def default_ship_files() -> list[ShipFile]:
+	"""The ship files in shipdefs/, used when /startinitialization has no attachments."""
+	return [
+		ShipFile(path.name, path.read_bytes())
+		for path in sorted(DEFAULT_SHIPS_DIR.glob("*.json"))
+	]
 
 
 def problems_text(problems: list[str]) -> str:
@@ -98,7 +108,8 @@ class GameCommands(commands.Cog):
 		extras=GM,
 	)
 	@app_commands.describe(
-		player_limit="How many players (not counting control) can enter the lobby"
+		player_limit="How many players (not counting control) can enter the lobby",
+		file1="Ship JSON files. Attach none to load the default fleet from shipdefs/",
 	)
 	@game_starter_only()
 	async def startinitialization(
@@ -140,7 +151,7 @@ class GameCommands(commands.Cog):
 				raise UserError("Run /startinitialization in #starting-games.")
 			ops.check_bot_permissions(guild)
 
-			files = await read_files(attachments)
+			files = await read_files(attachments) or default_ship_files()
 			ships, problems = validate_ship_files(files, Galaxy(guild.id))
 			if problems:
 				raise UserError(problems_text(problems))
@@ -406,7 +417,10 @@ class GameCommands(commands.Cog):
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxies.get(guild.id)
 			await ops.ensure_server(guild, galaxy, self.roles)
+			# Countdowns don't survive a restart: cancel any left half-done.
+			stale = drop_stale_countdowns(galaxy)
 			self.galaxies.save(galaxy)
+			await ops.post_notices(guild, galaxy, stale)
 
 	@commands.Cog.listener()
 	async def on_guild_available(self, guild: discord.Guild):

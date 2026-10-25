@@ -35,6 +35,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+# discord.py itself still calls asyncio.iscoroutinefunction (fine until Python 3.16).
+filterwarnings = [
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:discord",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

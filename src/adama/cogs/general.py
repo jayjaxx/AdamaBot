@@ -156,11 +156,15 @@ class GeneralCommands(commands.Cog):
 
 	def command_list(self, *, gm: bool) -> str:
 		commands_ = sorted(self.bot.tree.get_commands(), key=lambda c: c.name)
-		lines = [
-			f"`/{c.name}` {getattr(c, 'description', '')}"
-			for c in commands_
-			if bool(c.extras.get("gm")) == gm
-		]
+		lines: list[str] = []
+		for c in commands_:
+			if bool(c.extras.get("gm")) != gm:
+				continue
+			# A group (e.g. /station) lists each of its subcommands.
+			listed = c.commands if isinstance(c, app_commands.Group) else [c]
+			lines.extend(
+				f"`/{s.qualified_name}` {getattr(s, 'description', '')}" for s in listed
+			)
 		return "\n".join(lines)
 
 	@app_commands.command(name="help", description="List the player commands")

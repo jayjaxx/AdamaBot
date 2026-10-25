@@ -29,7 +29,7 @@ ADAMA uses slash commands. Each Discord server it's in runs its own independent 
 
 The bot needs the **Administrator** permission and the **Server Members** and **Message Content** privileged intents (enable them in the Discord developer portal). It creates any permanent channels it needs that are missing (`#starting-games`, `#control-chat`, `#laws` and so on; see `src/adama/channels.py`).
 
-To start a game, run `/startinitialization` in `#starting-games` with a player limit and the ship files from `shipdefs/` attached. See `shipdefs/README.md`.
+To start a game, run `/startinitialization` in `#starting-games` with a player limit. With no ship files attached it loads the default fleet in `shipdefs/`; attach files to use your own ships instead. See `shipdefs/README.md`.
 
 # Operation
 First you must install the ADAMA package to support module namespacing

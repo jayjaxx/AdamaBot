@@ -4,6 +4,7 @@ from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.resources import ResourcesContainer
 from adama.models.ship import Ship
+from adama.models.shuttle import Shuttle
 from adama.models.station import Station
 
 
@@ -75,13 +76,34 @@ def players_aboard(galaxy: Galaxy, ship: Ship) -> tuple[list[Player], list[Playe
 	return crew, visitors
 
 
+def shuttle_label(shuttle: Shuttle) -> str:
+	flags = [
+		name
+		for name, on in (
+			("launching", shuttle.launching),
+			("intercepted", shuttle.intercepted),
+			("cleared", shuttle.clearance),
+		)
+		if on
+	]
+	return shuttle.name + (f" ({', '.join(flags)})" if flags else "")
+
+
 def hangar_status(galaxy: Galaxy, ship: Ship) -> str:
 	crew, visitors = players_aboard(galaxy, ship)
 	lines = [f"## {ship.name} — Hangar"]
 	lines.append(f"**Crew aboard:** {', '.join(map(mention, crew)) or 'none'}")
 	lines.append(f"**Visitors aboard:** {', '.join(map(mention, visitors)) or 'none'}")
-	shuttles = ", ".join(shuttle.name for shuttle in ship.shuttles.values())
-	lines.append(f"**Docked shuttles:** {shuttles or 'none'}")
+	if not ship.shuttles:
+		lines.append("**Docked shuttles:** none")
+		return "\n".join(lines)
+	lines.append("**Docked shuttles:**")
+	for shuttle in ship.shuttles.values():
+		units_on = ", ".join(f"`{u.id}` {u.name}" for u in shuttle.units.values())
+		lines.append(
+			f"- {shuttle_label(shuttle)}: {format_resources(shuttle.resources)}"
+			+ (f"; units {units_on}" if units_on else "")
+		)
 	return "\n".join(lines)
 
 
@@ -104,7 +126,8 @@ def bridge_status(galaxy: Galaxy, ship: Ship) -> str:
 	lines.append(
 		f"**Rations:** food {_ration(ship, 'food')}, water {_ration(ship, 'water')}"
 	)
-	lines.append(f"**Jump coordinates:** {ship.next_coordinates or 'not set'}")
+	jumping = " (jump countdown running)" if ship.jumping else ""
+	lines.append(f"**Jump coordinates:** {ship.next_coordinates or 'not set'}{jumping}")
 
 	lines.append("\n**Stations**")
 	lines.extend(format_station(station) for station in ship.stations.values())
@@ -122,15 +145,6 @@ def bridge_status(galaxy: Galaxy, ship: Ship) -> str:
 		for u in ship.units.values()
 	]
 	lines.extend(units or ["none"])
-
-	if ship.shuttles:
-		lines.append("\n**Shuttle contents**")
-		for shuttle in ship.shuttles.values():
-			units_on = ", ".join(f"`{u.id}` {u.name}" for u in shuttle.units.values())
-			lines.append(
-				f"{shuttle.name}: {format_resources(shuttle.resources)}"
-				+ (f"; units {units_on}" if units_on else "")
-			)
 
 	lines.append("\n**Unclaimed action cards**")
 	cards = [f"`{c.id}` {c.name}" for c in ship.action_cards.values()]
