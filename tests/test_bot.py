@@ -82,7 +82,7 @@ GM_COMMANDS = {
 	"isolate",
 	"unisolate",
 	"shuttle",
-	"ship",
+	"setjumpdistance",
 }
 
 
@@ -115,7 +115,7 @@ def test_groups_are_control_only():
 	shuttle = bot.tree.get_command("shuttle")
 	assert isinstance(shuttle, discord.app_commands.Group)
 	assert {c.name for c in shuttle.commands} == {"conjure", "destroy", "teleport"}
-	for group in ("shuttle", "ship"):
+	for group in ("shuttle",):
 		command = bot.tree.get_command(group)
 		assert isinstance(command, discord.app_commands.Group)
 		for sub in command.commands:

@@ -37,7 +37,6 @@ class TravelCommands(commands.Cog):
 		description="Control: create, move and destroy shuttles",
 		extras=GM,
 	)
-	ship = app_commands.Group(name="ship", description="Control: edit ships", extras=GM)
 
 	def __init__(self, bot: AdamaBot):
 		self.bot = bot
@@ -436,13 +435,15 @@ class TravelCommands(commands.Cog):
 			)
 			await self._sync(guild, galaxy, moved.returned)
 
-	@ship.command(
-		name="jumpdistance",
-		description="Set whether jumping to some coordinates is short, medium or long",
+	@app_commands.command(
+		name="setjumpdistance",
+		description="Set whether jumping to some coordinates is short, medium or long (for every ship)",
+		extras=GM,
 	)
+	@app_commands.describe(coordinates="5 digits, e.g. 12903")
 	@app_commands.choices(distance=DISTANCE_CHOICES)
 	@control_only()
-	async def ship_jumpdistance(
+	async def setjumpdistance(
 		self, interaction: discord.Interaction, coordinates: str, distance: str
 	):
 		assert interaction.guild is not None

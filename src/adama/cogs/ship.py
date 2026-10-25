@@ -237,7 +237,8 @@ class ShipCommands(commands.Cog):
 		extras=GM,
 	)
 	@app_commands.describe(
-		ship_or_shuttle="Leave out to use the ship whose channel this is"
+		ship_or_shuttle="Leave out to use the ship whose channel this is",
+		silent="Don't tell the ship's bridge about the change",
 	)
 	@app_commands.choices(resource=RESOURCE_CHOICES)
 	@app_commands.autocomplete(ship_or_shuttle=ship_or_shuttle_autocomplete)
@@ -248,6 +249,7 @@ class ShipCommands(commands.Cog):
 		amount: int,
 		resource: str,
 		ship_or_shuttle: str | None = None,
+		silent: bool = False,
 	):
 		assert interaction.guild is not None
 		async with self.galaxies.lock(interaction.guild.id):
@@ -262,6 +264,8 @@ class ShipCommands(commands.Cog):
 			text, notices = res_rules.add_resource(
 				galaxy, amount, resource, ship_or_shuttle
 			)
+			if silent:
+				notices, text = [], f"{text} (silently: the bridge wasn't told)"
 			await self.finish(interaction, galaxy, notices, text)
 
 	@app_commands.command(
