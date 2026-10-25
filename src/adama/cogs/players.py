@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import discord
@@ -246,17 +247,19 @@ class PlayerCommands(commands.Cog):
 
 		await interaction.response.defer(ephemeral=True)
 		changed = []
+		edits = []
 		for channel_id in pdas.values():
 			channel = guild.get_channel(channel_id)
 			if channel is None:
 				continue
 			watching = not channel.overwrites_for(gm).is_empty()
-			if watch and not watching:
-				await channel.set_permissions(gm, overwrite=PDA_WATCH)
+			if watch != watching:
+				edits.append(
+					channel.set_permissions(gm, overwrite=PDA_WATCH if watch else None)
+				)
 				changed.append(channel.mention)
-			elif not watch and watching:
-				await channel.set_permissions(gm, overwrite=None)
-				changed.append(channel.mention)
+		# Every PDA has its own rate limit, so they're all changed at once.
+		await asyncio.gather(*edits)
 		if member is not None and not changed:
 			raise UserError(
 				f"You are {'already' if watch else 'not'} watching {member.mention}'s PDA."

@@ -9,6 +9,12 @@ if TYPE_CHECKING:
 	from adama.bot import AdamaBot
 
 
+# Control commands are hidden from anyone without this server permission, so players
+# never see them. The bot grants it to the Control and Game Starter roles; it's chosen
+# because it's otherwise harmless (it only manages scheduled events).
+GM_COMMAND_PERMISSION = discord.Permissions(manage_events=True)
+
+
 class UserError(app_commands.AppCommandError):
 	"""An expected error: its message is shown to the user who ran the command."""
 

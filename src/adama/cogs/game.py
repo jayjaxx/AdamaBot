@@ -45,6 +45,9 @@ def problems_text(problems: list[str]) -> str:
 	)
 
 
+MAX_ATTACHMENTS = 10
+
+
 def file_copies(files: list[ShipFile]) -> list[discord.File]:
 	return [discord.File(io.BytesIO(f.content), filename=f.filename) for f in files]
 
@@ -87,7 +90,12 @@ class GameCommands(commands.Cog):
 		await ops.place_council_and_brig(guild, galaxy)
 
 		setup = ops.get_text(guild, galaxy, ch.CONTROL_SETUP)
-		await setup.send("Ship files loaded:", files=file_copies(files))
+		# Discord allows at most 10 attachments per message (the default fleet has 11).
+		for start in range(0, len(files), MAX_ATTACHMENTS):
+			await setup.send(
+				"Ship files loaded:" if start == 0 else "More ship files loaded:",
+				files=file_copies(files[start : start + MAX_ATTACHMENTS]),
+			)
 		lines = [ship_summary(ship) for ship in ships]
 		lines.append(
 			"Load more ships with /loadship (Discord allows at most 10 attachments per message)."
@@ -311,6 +319,7 @@ class GameCommands(commands.Cog):
 			control = await guild.create_role(
 				name=self.roles.CONTROL, reason="ADAMA control role"
 			)
+		await ops.grant_gm_commands(control)
 
 		if user is not None:
 			if not is_gm(interaction.user, self.roles):

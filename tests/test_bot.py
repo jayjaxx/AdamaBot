@@ -109,6 +109,18 @@ def test_every_command_registers():
 	assert len(commands) <= 100
 
 
+def test_control_commands_are_hidden_from_players():
+	from adama.bot import hide_from_players
+	from adama.perms import GM_COMMAND_PERMISSION
+
+	bot = make_bot()
+	asyncio.run(load_cogs(bot))
+	for command in bot.tree.get_commands():
+		hide_from_players(command)
+		hidden = command.default_permissions == GM_COMMAND_PERMISSION
+		assert hidden == (command.name in GM_COMMANDS), command.name
+
+
 def test_groups_are_control_only():
 	bot = make_bot()
 	asyncio.run(load_cogs(bot))
@@ -156,8 +168,35 @@ def test_blind_channels():
 		fake_interaction(text_channel("starting-games"), "startinitialization")
 	)
 	assert not is_blind(fake_interaction(text_channel("starting-games"), "gm"))
+	assert not is_blind(fake_interaction(text_channel("starting-games"), "shutdown"))
 	assert not is_blind(fake_interaction(text_channel("aegis-bridge")))
 	assert is_blind(fake_interaction(object.__new__(discord.VoiceChannel)))
+
+
+def test_refusing_autocomplete_sends_no_message():
+	from adama.bot import refuse
+
+	sent: list = []
+
+	async def autocomplete(choices):
+		sent.append(("choices", choices))
+
+	async def send_message(*args, **kwargs):
+		sent.append(("message", args))
+
+	response = SimpleNamespace(
+		autocomplete=autocomplete,
+		send_message=send_message,
+		is_done=lambda: False,
+	)
+	interaction = SimpleNamespace(
+		type=discord.InteractionType.autocomplete, response=response
+	)
+	asyncio.run(refuse(interaction, "no"))
+	assert sent == [("choices", [])]
+	interaction.type = discord.InteractionType.application_command
+	asyncio.run(refuse(interaction, "no"))
+	assert sent[-1] == ("message", ("no",))
 
 
 def full_galaxy() -> Galaxy:
@@ -213,6 +252,10 @@ def test_fleet_status_lists_every_ship():
 	for ship in galaxy.ships.values():
 		assert ship.name in text
 	assert "Council chambers: Dione" in text
+	assert "resources: 8 food, 8 fuel" in text
+	assert "`0126` Jump Drive ❌" in text
+	galaxy.ships["0100"].stations["0126"].exhausted = True
+	assert "`0126` Jump Drive ✅" in fleet_status(galaxy)
 
 
 def test_split_message():

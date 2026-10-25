@@ -4,6 +4,9 @@ Game rules live in the models; this module only mirrors the game state onto a se
 The bot needs the Administrator permission.
 """
 
+import asyncio
+from collections.abc import Coroutine
+from typing import Any
 import logging
 import re
 
@@ -16,7 +19,7 @@ from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import Ship
 from adama.rules import BRIDGE, BROADCAST, CONTROL, HANGAR, PDA, Notice
-from adama.perms import UserError, is_gm
+from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.status import fleet_status, split_message
 
 logger = logging.getLogger(__name__)
@@ -111,6 +114,24 @@ def _normalise(name: str, kind: str) -> str:
 	return name.lower().replace(" ", "-") if kind == ch.TEXT else name
 
 
+async def grant_gm_commands(role: discord.Role) -> None:
+	"""Gives the role the permission that shows the control commands (see perms.py)."""
+	if role.permissions >= GM_COMMAND_PERMISSION:
+		return
+	try:
+		await role.edit(
+			permissions=role.permissions | GM_COMMAND_PERMISSION,
+			reason="ADAMA: lets this role see the control commands",
+		)
+	except discord.Forbidden:
+		logger.warning(
+			"Can't edit the %s role in %s: move ADAMA's role above it, or players "
+			"with it won't see the control commands",
+			role.name,
+			role.guild.name,
+		)
+
+
 async def ensure_server(
 	guild: discord.Guild, galaxy: Galaxy, roles: RolesConfig
 ) -> discord.Role:
@@ -120,6 +141,10 @@ async def ensure_server(
 		control = await guild.create_role(
 			name=roles.CONTROL, reason="ADAMA control role"
 		)
+	await grant_gm_commands(control)
+	starter = discord.utils.get(guild.roles, name=roles.GAME_STARTER)
+	if starter is not None:
+		await grant_gm_commands(starter)
 
 	for spec in [*ch.CATEGORIES, *ch.CHANNELS]:
 		existing = get_channel(guild, galaxy, spec.key)
@@ -349,6 +374,7 @@ async def reset_server(guild: discord.Guild, galaxy: Galaxy) -> None:
 		if permanent is not None:
 			await strip_member_overwrites(permanent)
 	galaxy.discord.fleet_status_message_ids.clear()
+	_fleet_status_shown.pop(guild.id, None)
 
 
 async def reset_control(control: discord.Role, *, keep: discord.Member) -> None:
@@ -384,24 +410,53 @@ async def send_long(
 	return messages[0]
 
 
+# #fleet-status is refreshed this long after the last change, so a burst of commands
+# makes one edit instead of one each.
+FLEET_STATUS_DELAY = 2.0
+_fleet_status_pending: dict[int, asyncio.Task] = {}
+# What each server's #fleet-status currently shows, so unchanged messages aren't edited.
+_fleet_status_shown: dict[int, list[str]] = {}
+
+
 async def update_fleet_status(guild: discord.Guild, galaxy: Galaxy) -> None:
+	"""Schedules a #fleet-status refresh (returns at once)."""
+	pending = _fleet_status_pending.get(guild.id)
+	if pending is not None and not pending.done():
+		pending.cancel()
+	_fleet_status_pending[guild.id] = asyncio.create_task(
+		_refresh_fleet_status_later(guild, galaxy)
+	)
+
+
+async def _refresh_fleet_status_later(guild: discord.Guild, galaxy: Galaxy) -> None:
+	await asyncio.sleep(FLEET_STATUS_DELAY)
+	try:
+		await refresh_fleet_status(guild, galaxy)
+	except discord.HTTPException:
+		logger.exception("Couldn't refresh #fleet-status in %s", guild.name)
+
+
+async def refresh_fleet_status(guild: discord.Guild, galaxy: Galaxy) -> None:
 	channel = get_channel(guild, galaxy, ch.FLEET_STATUS)
 	if not isinstance(channel, discord.TextChannel):
 		return
 	chunks = split_message(fleet_status(galaxy))
 	old = galaxy.discord.fleet_status_message_ids
+	shown = _fleet_status_shown.get(guild.id, [])
 	if len(old) == len(chunks):
 		try:
-			for message_id, chunk in zip(old, chunks):
+			for n, (message_id, chunk) in enumerate(zip(old, chunks)):
+				if n < len(shown) and shown[n] == chunk:
+					continue
 				await channel.get_partial_message(message_id).edit(content=chunk)
+			_fleet_status_shown[guild.id] = chunks
 			return
 		except discord.NotFound:
 			pass
-	for message_id in old:
-		try:
-			await channel.get_partial_message(message_id).delete()
-		except discord.NotFound:
-			pass
+	# Start again. Purging the bot's own messages also catches any whose IDs were
+	# never saved (the refresh runs after the command that triggered it has saved).
+	await channel.purge(limit=50, check=lambda m: m.author == guild.me)
+	_fleet_status_shown[guild.id] = chunks
 	galaxy.discord.fleet_status_message_ids = [
 		(await channel.send(chunk, allowed_mentions=NO_MENTIONS)).id for chunk in chunks
 	]
@@ -565,28 +620,48 @@ async def sync_player(
 
 	If they are in a voice channel they may no longer use, a /travel moves them into
 	their new ship's Hangar VC; any other move drops them and tells their PDA.
+
+	Only overwrites that differ are sent, all at once (each channel has its own rate
+	limit). New access is granted before old access is taken, so the player is never
+	left with nothing and can be moved straight into their new voice channel.
 	"""
 	member = guild.get_member(player.discord_user_id)
 	if member is None:
 		return
 	desired = player_access(galaxy, player)
 	managed = managed_channels(galaxy)
+	grants: list[Coroutine[Any, Any, None]] = []
+	revokes: list[Coroutine[Any, Any, None]] = []
 	for channel_id in managed:
 		channel = guild.get_channel(channel_id)
 		if channel is None:
 			continue
 		want = _to_overwrite(channel, desired.get(channel_id))
-		if channel.overwrites_for(member) != want:
-			await channel.set_permissions(
-				member, overwrite=None if want.is_empty() else want
-			)
-
+		if channel.overwrites_for(member) == want:
+			continue
+		change = channel.set_permissions(
+			member, overwrite=None if want.is_empty() else want
+		)
+		(revokes if want.is_empty() else grants).append(change)
 	pda = guild.get_channel(player.pda_channel_id or 0)
 	if pda is not None and pda.overwrites_for(member) != PDA_ACCESS:
-		await pda.set_permissions(member, overwrite=PDA_ACCESS)
+		grants.append(pda.set_permissions(member, overwrite=PDA_ACCESS))
+	await asyncio.gather(*grants)
+	await _leave_lost_voice(guild, galaxy, player, member, desired, travelled, pda)
+	await asyncio.gather(*revokes)
 
+
+async def _leave_lost_voice(
+	guild: discord.Guild,
+	galaxy: Galaxy,
+	player: Player,
+	member: discord.Member,
+	desired: dict[int, Access],
+	travelled: bool,
+	pda: GuildChannel | None,
+) -> None:
 	voice = member.voice.channel if member.voice else None
-	if voice is None or voice.id not in managed:
+	if voice is None or voice.id not in managed_channels(galaxy):
 		return
 	allowed = desired.get(voice.id)
 	if allowed is not None and allowed.connect:
@@ -621,21 +696,13 @@ async def sync_crew_roles(guild: discord.Guild, galaxy: Galaxy, player: Player) 
 async def post_notices(
 	guild: discord.Guild, galaxy: Galaxy, notices: list[Notice]
 ) -> None:
+	"""Posts every notice. Different channels are posted to at the same time (each has
+	its own rate limit); notices for the same channel keep their order."""
+	queues: dict[int, tuple[discord.TextChannel, list[str]]] = {}
 	for notice in notices:
-		channel: GuildChannel | None = None
-		if notice.target == HANGAR:
-			channel = ship_channel(guild, galaxy, notice.id, ch.SHIP_HANGAR)
-		elif notice.target == BRIDGE:
-			channel = ship_channel(guild, galaxy, notice.id, ch.SHIP_BRIDGE)
-		elif notice.target == PDA:
-			player = galaxy.players.get(notice.id)
-			channel = guild.get_channel(player.pda_channel_id or 0) if player else None
-		elif notice.target == CONTROL:
-			channel = get_channel(guild, galaxy, ch.CONTROL_CHAT)
-		elif notice.target == BROADCAST:
-			channel = get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
+		channel = _notice_channel(guild, galaxy, notice)
 		if isinstance(channel, discord.TextChannel):
-			await send_long(channel, notice.text)
+			queues.setdefault(channel.id, (channel, []))[1].append(notice.text)
 		else:
 			logger.warning(
 				"Could not post notice to %s %s: %s",
@@ -643,6 +710,29 @@ async def post_notices(
 				notice.id,
 				notice.text,
 			)
+
+	async def post_in_order(channel: discord.TextChannel, texts: list[str]) -> None:
+		for text in texts:
+			await send_long(channel, text)
+
+	await asyncio.gather(*(post_in_order(c, texts) for c, texts in queues.values()))
+
+
+def _notice_channel(
+	guild: discord.Guild, galaxy: Galaxy, notice: Notice
+) -> GuildChannel | None:
+	if notice.target == HANGAR:
+		return ship_channel(guild, galaxy, notice.id, ch.SHIP_HANGAR)
+	if notice.target == BRIDGE:
+		return ship_channel(guild, galaxy, notice.id, ch.SHIP_BRIDGE)
+	if notice.target == PDA:
+		player = galaxy.players.get(notice.id)
+		return guild.get_channel(player.pda_channel_id or 0) if player else None
+	if notice.target == CONTROL:
+		return get_channel(guild, galaxy, ch.CONTROL_CHAT)
+	if notice.target == BROADCAST:
+		return get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
+	return None
 
 
 async def close_lobby(guild: discord.Guild, galaxy: Galaxy) -> None:

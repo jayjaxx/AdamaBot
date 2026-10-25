@@ -9,14 +9,14 @@ from adama import channels as ch
 from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
-from adama.perms import UserError, is_gm
+from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.rules import GameError
 from adama.status import split_message
 
 logger = logging.getLogger()
 
 # Commands that still work in the otherwise blind #starting-games.
-STARTING_GAMES_COMMANDS = {"startinitialization", "gm"}
+STARTING_GAMES_COMMANDS = {"startinitialization", "gm", "shutdown"}
 # The only commands brigged and dead players can use.
 BRIGGED_COMMANDS = {"status", "roll", "control", "help"}
 DEAD_COMMANDS = {"control", "help"}
@@ -45,6 +45,15 @@ def is_blind(interaction: discord.Interaction) -> bool:
 	return not (name == "starting-games" and command in STARTING_GAMES_COMMANDS)
 
 
+def hide_from_players(command) -> None:
+	"""Control commands only show in the command list for roles with the GM permission.
+	The control_only check still guards them if a server overrides this."""
+	if isinstance(command, (app_commands.Command, app_commands.Group)) and (
+		command.extras.get("gm")
+	):
+		command.default_permissions = GM_COMMAND_PERMISSION
+
+
 async def reply(
 	interaction: discord.Interaction, text: str, *, ephemeral: bool = False
 ) -> None:
@@ -61,19 +70,22 @@ async def reply(
 			)
 
 
+async def refuse(interaction: discord.Interaction, text: str) -> None:
+	"""Turns an interaction away. While the user is still typing (autocomplete) Discord
+	only accepts suggestions, so they get none; the reason is shown if they send it."""
+	if interaction.type == discord.InteractionType.autocomplete:
+		await interaction.response.autocomplete([])
+	else:
+		await reply(interaction, text, ephemeral=True)
+
+
 class AdamaTree(app_commands.CommandTree):
 	async def interaction_check(self, interaction: discord.Interaction) -> bool:
 		if interaction.guild is None:
-			await reply(
-				interaction, "ADAMA commands only work in a server.", ephemeral=True
-			)
+			await refuse(interaction, "ADAMA commands only work in a server.")
 			return False
 		if is_blind(interaction):
-			await reply(
-				interaction,
-				"ADAMA doesn't take commands in this channel.",
-				ephemeral=True,
-			)
+			await refuse(interaction, "ADAMA doesn't take commands in this channel.")
 			return False
 		bot = interaction.client
 		if isinstance(bot, AdamaBot) and not is_gm(interaction.user, bot.config.roles):
@@ -83,7 +95,7 @@ class AdamaTree(app_commands.CommandTree):
 			if player is not None:
 				reason = restricted_reason(player.dead, player.brigged, command)
 				if reason is not None:
-					await reply(interaction, reason, ephemeral=True)
+					await refuse(interaction, reason)
 					return False
 		return True
 
@@ -131,6 +143,7 @@ class AdamaBot(commands.Bot):
 
 		for command in self.tree.get_commands():
 			command.allowed_contexts = app_commands.AppCommandContext(guild=True)
+			hide_from_players(command)
 
 		if self.config.discord.DEV_GUILD_IDS:
 			for guild_id in self.config.discord.DEV_GUILD_IDS:

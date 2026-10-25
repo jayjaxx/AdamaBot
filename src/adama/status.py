@@ -219,6 +219,12 @@ def fleet_list(galaxy: Galaxy, coordinates: str) -> str:
 	return "\n".join(lines)
 
 
+def activated_this_turn(station: Station) -> bool:
+	"""Activating exhausts a station until /endturn; a reusable one (Hangar Bay) isn't
+	exhausted, but the crew it used are recorded on it."""
+	return station.exhausted or bool(station.units_used_this_turn)
+
+
 def fleet_status(galaxy: Galaxy) -> str:
 	"""The summary kept up to date in #fleet-status."""
 	lines = [f"# Fleet status — {galaxy.state}, turn {galaxy.turn_number}"]
@@ -251,10 +257,20 @@ def fleet_status(galaxy: Galaxy) -> str:
 			water = ship.water_ration_level
 			lines.append(
 				f"**{ship.name}** `{ship.id}` morale {ship.morale_level}/10"
-				f"{' (rolled)' if ship.morale_rolled_this_turn else ''} | {format_resources(ship.resources)}"
+				f"{' (rolled)' if ship.morale_rolled_this_turn else ''}"
 				f" | rations {food}/{water} | {damaged} damaged, {riots} riots"
 				+ (f" [{', '.join(flags)}]" if flags else "")
 			)
+			lines.append(f"  resources: {format_resources(ship.resources)}")
+			start = [s for s in ship.stations.values() if s.startofturn]
+			if start:
+				lines.append(
+					"  start of turn: "
+					+ ", ".join(
+						f"`{s.id}` {s.name} {'✅' if activated_this_turn(s) else '❌'}"
+						for s in start
+					)
+				)
 			if ship.id in galaxy.morale_results:
 				lines.append(f"  last morale roll ({galaxy.morale_results[ship.id]})")
 	return "\n".join(lines)
