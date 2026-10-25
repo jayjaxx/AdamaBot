@@ -7,9 +7,9 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
+from adama.cogs._shared import player_of, ship_named
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_COMBAT, Player
-from adama.models.ship import Ship
 from adama.perms import UserError, control_only
 from adama.rules import players as rules
 from adama.rules.players import current_ship
@@ -20,20 +20,6 @@ GM = {"gm": True}
 PDA_WATCH = discord.PermissionOverwrite(
 	view_channel=True, send_messages=True, read_message_history=True
 )
-
-
-def player_of(galaxy: Galaxy, user: discord.abc.User) -> Player:
-	player = galaxy.player_by_user(user.id)
-	if player is None:
-		raise UserError(f"{user.mention} isn't a player.")
-	return player
-
-
-def ship_named(galaxy: Galaxy, name: str) -> Ship:
-	ship = galaxy.ship_by_name(name)
-	if ship is None:
-		raise UserError(f'There is no ship named "{name}".')
-	return ship
 
 
 def in_departure_channel(

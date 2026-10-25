@@ -241,6 +241,8 @@ def fleet_status(galaxy: Galaxy) -> str:
 				f" | rations {food}/{water} | {damaged} damaged, {riots} riots"
 				+ (f" [{', '.join(flags)}]" if flags else "")
 			)
+			if ship.id in galaxy.morale_results:
+				lines.append(f"  last morale roll ({galaxy.morale_results[ship.id]})")
 	return "\n".join(lines)
 
 

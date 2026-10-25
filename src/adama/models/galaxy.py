@@ -96,6 +96,10 @@ class Galaxy:
 	council_chambers_ship: str | None = None
 	council_sealed: bool = False
 	brig_ship: str | None = None
+	# /endturn was refused once because ships hadn't rolled; the next one forces it.
+	end_turn_warned: bool = False
+	# Latest morale roll summary per ship ID, shown in #fleet-status.
+	morale_results: dict[str, str] = field(default_factory=dict)
 
 	coordinates: dict[str, Coordinates] = field(default_factory=dict)
 	ships: dict[str, Ship] = field(default_factory=dict)
@@ -209,6 +213,8 @@ class Galaxy:
 			"council_chambers_ship": self.council_chambers_ship,
 			"council_sealed": self.council_sealed,
 			"brig_ship": self.brig_ship,
+			"end_turn_warned": self.end_turn_warned,
+			"morale_results": dict(self.morale_results),
 			"coordinates": {
 				c: coords.to_dict() for c, coords in self.coordinates.items()
 			},
@@ -234,6 +240,9 @@ class Galaxy:
 			council_chambers_ship=data["council_chambers_ship"],
 			council_sealed=data["council_sealed"],
 			brig_ship=data["brig_ship"],
+			# .get: saved before these fields existed.
+			end_turn_warned=data.get("end_turn_warned", False),
+			morale_results=dict(data.get("morale_results", {})),
 			coordinates={
 				c: Coordinates.from_dict(c, coords)
 				for c, coords in data["coordinates"].items()

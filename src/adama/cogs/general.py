@@ -8,9 +8,9 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
+from adama.cogs._shared import ship_for_channel
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_COMBAT
-from adama.models.ship import Ship
 from adama.perms import UserError, control_only, is_gm
 from adama.status import (
 	bridge_status,
@@ -35,16 +35,6 @@ class GeneralCommands(commands.Cog):
 	def galaxy(self, interaction: discord.Interaction) -> Galaxy:
 		assert interaction.guild is not None
 		return self.galaxies.get(interaction.guild.id)
-
-	def ship_channel(
-		self, galaxy: Galaxy, channel_id: int | None
-	) -> tuple[Ship, str] | None:
-		"""The ship and kind ("hangar" or "bridge") of a ship text channel."""
-		for ship_id, created in galaxy.discord.ship_channels.items():
-			for kind in (ch.SHIP_HANGAR, ch.SHIP_BRIDGE):
-				if created.get(kind) == channel_id and ship_id in galaxy.ships:
-					return galaxy.ships[ship_id], kind
-		return None
 
 	@app_commands.command(name="ping", description="Say hello to the bot!")
 	async def ping(self, interaction: discord.Interaction):
@@ -87,7 +77,7 @@ class GeneralCommands(commands.Cog):
 				await reply(interaction, pda_status(galaxy, owner))
 			return
 
-		found = self.ship_channel(galaxy, interaction.channel_id)
+		found = ship_for_channel(galaxy, interaction.channel_id)
 		if found is None:
 			raise UserError("Run /status in a ship's hangar or bridge, or in your PDA.")
 		ship, kind = found
@@ -123,7 +113,7 @@ class GeneralCommands(commands.Cog):
 			if player.location == "brig":
 				ship_id = galaxy.brig_ship
 		elif is_gm(interaction.user, self.roles):
-			found = self.ship_channel(galaxy, interaction.channel_id)
+			found = ship_for_channel(galaxy, interaction.channel_id)
 			if found is None:
 				# Control outside a ship channel sees every set of coordinates.
 				lists = [fleet_list(galaxy, c) for c in sorted(galaxy.coordinates)]
