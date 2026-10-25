@@ -1,7 +1,5 @@
 from pathlib import Path
 
-DEBUG_MODE = True
-
 CONFIG_PATH = Path("config.toml")
 
 SRC_DIR = Path("src")
