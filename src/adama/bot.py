@@ -9,9 +9,11 @@ from adama import channels as ch
 from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
-from adama.models.galaxy import STATE_ENDED
+from adama.models.galaxy import STATE_ENDED, Galaxy
+from adama.models.player import LOCATION_COMBAT, Player
 from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.rules import GameError
+from adama.rules.players import current_ship
 from adama.status import split_message
 
 logger = logging.getLogger()
@@ -34,6 +36,20 @@ def restricted_reason(dead: bool, brigged: bool, command: str | None) -> str | N
 			"You're in the brig: you can only use /status, /roll, /control and /help."
 		)
 	return None
+
+
+DESTROYED_SHIP = (
+	"This ship has been destroyed. If you're reading this, control should be on their "
+	"way to deal with you. If they aren't here shortly, use /control."
+)
+
+
+def destroyed_reason(galaxy: Galaxy, player: Player, command: str | None) -> str | None:
+	"""Players aboard (or in the brig of) a destroyed ship can only call control."""
+	if player.location == LOCATION_COMBAT or command == "control":
+		return None
+	ship = current_ship(galaxy, player)
+	return DESTROYED_SHIP if ship is not None and ship.destroyed else None
 
 
 def is_blind(interaction: discord.Interaction) -> bool:
@@ -106,7 +122,9 @@ class AdamaTree(app_commands.CommandTree):
 		if not is_gm(interaction.user, bot.config.roles):
 			player = galaxy.player_by_user(interaction.user.id)
 			if player is not None:
-				reason = restricted_reason(player.dead, player.brigged, command)
+				reason = restricted_reason(
+					player.dead, player.brigged, command
+				) or destroyed_reason(galaxy, player, command)
 				if reason is not None:
 					await refuse(interaction, reason)
 					return False

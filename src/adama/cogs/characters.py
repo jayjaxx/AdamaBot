@@ -9,7 +9,7 @@ from adama.bot import AdamaBot, reply
 from adama.cogs._shared import PRESIDENT_ONLY, choices, player_of, ship_named
 from adama.models.galaxy import STATE_INITIALIZING, Galaxy
 from adama.models.player import Player
-from adama.perms import UserError, control_only
+from adama.perms import UserError, control_only, is_gm
 from adama.rules import Notice
 from adama.rules import characters as char_rules
 from adama.rules import combat as combat_rules
@@ -230,7 +230,7 @@ class CharacterCommands(commands.Cog):
 	@app_commands.command(
 		name="relocate",
 		extras=PRESIDENT_ONLY,
-		description="President: move the council chambers to another ship",
+		description="President: move the council chambers to another ship (control can too)",
 	)
 	@app_commands.autocomplete(ship_name=ship_autocomplete)
 	async def relocate(self, interaction: discord.Interaction, ship_name: str):
@@ -239,7 +239,12 @@ class CharacterCommands(commands.Cog):
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxy(interaction)
 			ship = ship_named(galaxy, ship_name)
-			change = council_rules.relocate(galaxy, self.president(interaction), ship)
+			mover = (
+				None
+				if is_gm(interaction.user, self.roles)
+				else self.president(interaction)
+			)
+			change = council_rules.relocate(galaxy, mover, ship)
 			await interaction.response.defer(ephemeral=True)
 			await ops.place_council_and_brig(guild, galaxy)
 			await self.finish(

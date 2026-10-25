@@ -268,6 +268,19 @@ def destroy_ship(galaxy: Galaxy, ship: Ship) -> list[Notice]:
 					claim=True,
 				)
 			)
+	aboard = []
+	if galaxy.council_chambers_ship == ship.id:
+		aboard.append("the council chambers (move them with /relocate)")
+	if galaxy.brig_ship == ship.id:
+		aboard.append("the brig (move it with /movebrig)")
+	if aboard:
+		notices.append(
+			Notice(
+				CONTROL,
+				f"The destroyed {ship.name} holds " + " and ".join(aboard) + ".",
+				claim=True,
+			)
+		)
 	ship.destroyed = True
 	return notices
 

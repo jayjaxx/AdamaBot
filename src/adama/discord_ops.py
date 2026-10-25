@@ -995,6 +995,28 @@ async def set_member_role(member: discord.Member, name: str, given: bool) -> Non
 		await member.remove_roles(role, reason="ADAMA")
 
 
+async def restore_player(
+	guild: discord.Guild, galaxy: Galaxy, player: Player, roles: RolesConfig
+) -> None:
+	"""A player who left the server and rejoined: Discord dropped their roles and
+	permissions, so give back their crew and office roles, and their channels."""
+	if player.dead:
+		await sync_player(guild, galaxy, player)
+		return
+	await sync_crew_roles(guild, galaxy, player)
+	offices = [
+		name
+		for name, held in (
+			(roles.PRESIDENT, player.president),
+			(roles.COUNCILLOR, player.councillor),
+			(roles.FIRST_RESPONDER, player.first_responder),
+		)
+		if held
+	]
+	await give_roles(guild, player, offices)
+	await sync_player(guild, galaxy, player)
+
+
 async def sync_players(
 	guild: discord.Guild, galaxy: Galaxy, players: list[Player]
 ) -> None:

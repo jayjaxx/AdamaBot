@@ -325,3 +325,38 @@ def test_start_of_turn_station_during_a_lockdown_is_late():
 	notices = st.activate(aegis, drive.id, None, None, "@me")
 	assert not any(n.target == CONTROL for n in notices)
 	assert "`0126` Jump Drive ✅" in fleet_status(g)
+
+
+def test_destroyed_ships_refuse_players_and_alert_about_chambers_and_brig():
+	from adama.bot import destroyed_reason
+	from adama.rules import council
+
+	g = galaxy()
+	aegis, dione = g.ships[AEGIS], g.ships["0200"]
+	aboard_aegis = aboard(g, AEGIS)
+	notices = editing.destroy_ship(g, aegis)  # the brig is aboard the Aegis
+	alert = next(n for n in notices if "holds" in n.text)
+	assert "/movebrig" in alert.text and "/relocate" not in alert.text
+	assert "control should be on their way" in destroyed_reason(
+		g, aboard_aegis, "status"
+	)
+	assert destroyed_reason(g, aboard_aegis, "control") is None
+	notices = editing.destroy_ship(g, dione)  # the chambers are aboard the Dione
+	assert any("/relocate" in n.text for n in notices if "holds" in n.text)
+	council.relocate(g, None, g.ships["1000"])  # control may move the chambers
+	assert g.council_chambers_ship == "1000"
+
+
+def test_wounded_combat_players_are_left_for_control():
+	g = galaxy()
+	fighter = aboard(g, "0200")
+	fighter.first_responder = True
+	combat.lockdown(g, "12903", g.ships[AEGIS])
+	pl.travel(g, fighter, "combat")
+	fighter.wounded = True
+	change = combat.end_lockdown(g, "12903")
+	assert fighter.location == ""
+	alert = next(n for n in change.notices if n.target == CONTROL and n.claim)
+	assert "<@1>" in alert.text and "wounded" in alert.text
+	pda = next(n for n in change.notices if n.target == PDA and n.id == fighter.id)
+	assert "Sickbay" in pda.text and "/control" in pda.text

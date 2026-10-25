@@ -71,8 +71,10 @@ def summon(galaxy: Galaxy, player: Player) -> list[Notice]:
 	return notices
 
 
-def relocate(galaxy: Galaxy, player: Player, ship: Ship) -> CouncilChange:
-	_president(player)
+def relocate(galaxy: Galaxy, player: Player | None, ship: Ship) -> CouncilChange:
+	"""`player` is None when control moves the chambers (e.g. off a destroyed ship)."""
+	if player is not None:
+		_president(player)
 	if ship.destroyed:
 		raise GameError(f"The {ship.name} has been destroyed.")
 	if galaxy.council_chambers_ship == ship.id:
@@ -86,7 +88,9 @@ def relocate(galaxy: Galaxy, player: Player, ship: Ship) -> CouncilChange:
 	]
 	change.notices.append(
 		Notice(
-			CONTROL, f"{mention(player)} moved the council chambers to the {ship.name}."
+			CONTROL,
+			f"{mention(player) if player else 'Control'} moved the council chambers "
+			f"to the {ship.name}.",
 		)
 	)
 	return change

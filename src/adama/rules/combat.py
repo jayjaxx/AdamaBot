@@ -230,23 +230,36 @@ def end_lockdown(galaxy: Galaxy, coordinates: str | None) -> CombatChange:
 				continue
 			# Back to their ship; if it left, to the commanding ship; if that left
 			# too, nowhere until control places them.
+			# Wounded players stay for control to take to a Sickbay.
 			dest: Ship | None = origin
-			if origin.coordinates != coords.coordinates:
+			roles = f"crew roles: {_crew_roles(galaxy, player)}"
+			if player.wounded:
+				dest = None
+				unplaced.append(f"{mention(player)} ({roles}; wounded)")
+			elif origin.coordinates != coords.coordinates:
 				dest = commanding
-				who = (
-					f"{mention(player)} (crew roles: {_crew_roles(galaxy, player)}; "
-					f"the {origin.name} had left)"
-				)
+				reason = f"the {origin.name} had left"
+				if dest is None:
+					reason += " and so had the commanding ship"
+				who = f"{mention(player)} ({roles}; {reason})"
 				(moved_over if dest else unplaced).append(who)
 			player.location = dest.id if dest else LOCATION_NONE
 			player.combat_origin_ship = None
 			player.combat_coordinates = None
 			returned.append(player)
-			text = (
-				f"Combat is over: you're aboard the {dest.name}."
-				if dest
-				else "Combat is over. Your ship has left: control will place you shortly."
-			)
+			if dest is not None:
+				text = f"Combat is over: you're aboard the {dest.name}."
+			elif player.wounded:
+				text = (
+					"Combat is over. You're wounded: control will take you to a ship "
+					"with a Sickbay shortly. If they don't within a couple of minutes, "
+					"use /control."
+				)
+			else:
+				text = (
+					"Combat is over. Your ship has left: control will place you "
+					"shortly. If they don't within a couple of minutes, use /control."
+				)
 			change.notices.append(Notice(PDA, text, player.id))
 		alert = [f"The lockdown at {coords.coordinates} ended."]
 		if moved_over and commanding is not None:
@@ -256,8 +269,7 @@ def end_lockdown(galaxy: Galaxy, coordinates: str | None) -> CombatChange:
 			)
 		if unplaced:
 			alert.append(
-				"These players' ships had left and so had the commanding ship, so "
-				"they have no location: place them with /teleportplayer. "
+				"These players have no location: place them with /teleportplayer. "
 				+ "; ".join(unplaced)
 				+ "."
 			)

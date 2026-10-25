@@ -16,7 +16,7 @@ from adama.rules.combat import end_lockdown
 from adama.rules.shuttles import drop_stale_countdowns
 from adama.rules.players import LobbyMember, start_game
 from adama.shipfiles import ShipFile, validate_ship_files
-from adama.status import ship_summary
+from adama.status import location_name, ship_summary
 
 logger = logging.getLogger()
 
@@ -461,6 +461,41 @@ class GameCommands(commands.Cog):
 	@commands.Cog.listener()
 	async def on_guild_join(self, guild: discord.Guild):
 		await self.prepare_server(guild)
+
+	# Players leaving and rejoining the server mid-game. Their character stays put.
+
+	@commands.Cog.listener()
+	async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent):
+		guild = self.bot.get_guild(payload.guild_id)
+		galaxy = self.galaxies.get(payload.guild_id)
+		player = galaxy.player_by_user(payload.user.id) if galaxy.started else None
+		if guild is None or player is None:
+			return
+		chat = ops.get_channel(guild, galaxy, ch.CONTROL_CHAT)
+		if isinstance(chat, discord.TextChannel):
+			message = await chat.send(
+				f"{payload.user.mention} ({payload.user.name}) left the server. Their "
+				f"character stays at {location_name(galaxy, player)}; if they rejoin "
+				"they get their roles and channels back.",
+				allowed_mentions=discord.AllowedMentions.none(),
+			)
+			await ops.offer_call(message)
+
+	@commands.Cog.listener()
+	async def on_member_join(self, member: discord.Member):
+		galaxy = self.galaxies.get(member.guild.id)
+		player = galaxy.player_by_user(member.id) if galaxy.started else None
+		if player is None:
+			return
+		async with self.galaxies.lock(member.guild.id):
+			await ops.restore_player(member.guild, galaxy, player, self.roles)
+		chat = ops.get_channel(member.guild, galaxy, ch.CONTROL_CHAT)
+		if isinstance(chat, discord.TextChannel):
+			await chat.send(
+				f"{member.mention} rejoined the server: their roles and channels have "
+				f"been restored ({location_name(galaxy, player)}).",
+				allowed_mentions=discord.AllowedMentions.none(),
+			)
 
 	# Pregame lobby: reacting to the message in #starting-games joins the queue.
 
