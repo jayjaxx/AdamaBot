@@ -43,6 +43,20 @@ def ship_for_channel(galaxy: Galaxy, channel_id: int | None) -> tuple[Ship, str]
 	return None
 
 
+# Where a player command works, shown by /help (command extras).
+WHERE_HANGAR = {"where": "hangar"}
+WHERE_HANGAR_CREW = {"where": "hangar, crew only"}
+WHERE_BRIDGE = {"where": "bridge, crew only"}
+WHERE_SHIP_CREW = {"where": "hangar or bridge, crew only"}
+
+# Commands only an office holder can use; /help lists each office under its own header
+# and only to players who hold it.
+OFFICES: dict[str, tuple[str, Callable[[Player], bool]]] = {
+	"president": ("President", lambda p: p.president),
+}
+PRESIDENT_ONLY = {"office": "president"}
+
+
 def ship_here(
 	galaxy: Galaxy, interaction: discord.Interaction, kind: str, *, gm: bool, crew: bool
 ) -> Ship:

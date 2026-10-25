@@ -188,6 +188,7 @@ def activate(
 			Notice(
 				CONTROL,
 				f"{by} used `{station.id}` {station.name} on the {ship.name}: {station.description}",
+				claim=True,
 			)
 		)
 	return notices
@@ -222,6 +223,7 @@ def repair(
 			Notice(
 				CONTROL,
 				f"`{station.id}` {station.name} on the {ship.name} has been repaired (end its ongoing damage effects).",
+				claim=True,
 			)
 		)
 	return notices
@@ -330,6 +332,7 @@ def damage(galaxy: Galaxy, target: str, rng: random.Random) -> list[Notice]:
 			Notice(
 				CONTROL,
 				f"`{station.id}` {station.name} on the {ship.name} was damaged: {station.damaged_description}",
+				claim=True,
 			)
 		)
 	return notices
@@ -349,6 +352,7 @@ def riot_at(ship: Ship, station: Station) -> list[Notice]:
 			Notice(
 				CONTROL,
 				f"A riot broke out in the Cells `{station.id}` on the {ship.name} (Vulcan special rule).",
+				claim=True,
 			)
 		)
 	return notices

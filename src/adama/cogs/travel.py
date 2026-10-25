@@ -9,6 +9,9 @@ from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
 from adama.cogs._shared import (
+	WHERE_BRIDGE,
+	WHERE_HANGAR,
+	WHERE_SHIP_CREW,
 	choices,
 	player_of,
 	ship_for_channel,
@@ -129,6 +132,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="launch",
+		extras=WHERE_HANGAR,
 		description="Fly a docked shuttle (and its cargo) to another ship at your coordinates",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -174,6 +178,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="intercept",
+		extras=WHERE_HANGAR,
 		description="Stop a docked shuttle launching until it is given clearance",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -196,6 +201,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="clearance",
+		extras=WHERE_SHIP_CREW,
 		description="Clear a docked shuttle for launch, or give a player clearance for it",
 	)
 	@app_commands.describe(
@@ -219,6 +225,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="revoke",
+		extras=WHERE_SHIP_CREW,
 		description="Take away a shuttle's clearance, or all of a player's clearances",
 	)
 	@app_commands.describe(
@@ -309,6 +316,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="jump",
+		extras=WHERE_BRIDGE,
 		description=f"Start the {jump_rules.JUMP_SECONDS}-second jump countdown to the set coordinates",
 	)
 	async def jump(self, interaction: discord.Interaction):
@@ -345,7 +353,9 @@ class TravelCommands(commands.Cog):
 		for player in players:
 			await ops.sync_player(guild, galaxy, player)
 
-	@app_commands.command(name="abort", description="Stop your ship's jump countdown")
+	@app_commands.command(
+		name="abort", extras=WHERE_BRIDGE, description="Stop your ship's jump countdown"
+	)
 	async def abort(self, interaction: discord.Interaction):
 		assert interaction.guild is not None
 		async with self.galaxies.lock(interaction.guild.id):
@@ -357,7 +367,9 @@ class TravelCommands(commands.Cog):
 			await self.finish(interaction, galaxy, notices, "Jump aborted.")
 
 	@app_commands.command(
-		name="setcoords", description="Set the coordinates of your ship's next jump"
+		name="setcoords",
+		extras=WHERE_BRIDGE,
+		description="Set the coordinates of your ship's next jump",
 	)
 	@app_commands.describe(coordinates="5 digits, e.g. 12903")
 	async def setcoords(self, interaction: discord.Interaction, coordinates: str):
@@ -371,7 +383,9 @@ class TravelCommands(commands.Cog):
 			await self.finish(interaction, galaxy, notices, "Coordinates set.")
 
 	@app_commands.command(
-		name="checkcoords", description="Show your ship's set jump coordinates"
+		name="checkcoords",
+		extras=WHERE_BRIDGE,
+		description="Show your ship's set jump coordinates",
 	)
 	async def checkcoords(self, interaction: discord.Interaction):
 		galaxy = self.galaxy(interaction)

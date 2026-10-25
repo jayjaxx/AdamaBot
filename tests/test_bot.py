@@ -47,6 +47,16 @@ PLAYER_COMMANDS = {
 	"abort",
 	"setcoords",
 	"checkcoords",
+	"takecard",
+	"leavecard",
+	"givecard",
+	"playcard",
+	"summoncouncil",
+	"relocate",
+	"seal",
+	"unseal",
+	"permit",
+	"gag",
 }
 GM_COMMANDS = {
 	"addresource",
@@ -74,7 +84,6 @@ GM_COMMANDS = {
 	"unloadship",
 	"playerlimit",
 	"endgame",
-	"gmhelp",
 	"shutdown",
 	"subcoords",
 	"clearsubbedcoords",
@@ -83,6 +92,17 @@ GM_COMMANDS = {
 	"unisolate",
 	"shuttle",
 	"setjumpdistance",
+	"wound",
+	"heal",
+	"kill",
+	"resurrect",
+	"brig",
+	"unbrig",
+	"movebrig",
+	"electpresident",
+	"electcouncillor",
+	"depose",
+	"card",
 }
 
 
@@ -121,13 +141,46 @@ def test_control_commands_are_hidden_from_players():
 		assert hidden == (command.name in GM_COMMANDS), command.name
 
 
+def test_help_lists():
+	bot = make_bot()
+	asyncio.run(load_cogs(bot))
+	help_list = bot.get_cog("GeneralCommands").command_list
+	text = help_list("players")
+	assert text.startswith("**ADAMA commands**\n")
+	assert "`/jump` *(bridge, crew only)*" in text
+	assert "`/load` *(hangar, crew only)*" in text
+	assert "`/travel` *(hangar)*" in text
+	assert "`/clearance` *(hangar or bridge, crew only)*" in text
+	assert "`/roll` Roll" in text
+	assert "summoncouncil" not in text and "President" not in text
+	assert "/endturn" not in text and "/help" in text
+
+	president = Player(id="0001", discord_user_id=1, president=True)
+	text = help_list("players", president)
+	assert "\n\n**President commands**\n`/gag` stop a permitted player" in text
+	assert text.count("summoncouncil") == 1
+
+	office = help_list("president")
+	assert office.startswith("**President commands**") and "/roll" not in office
+	control = help_list("control")
+	assert control.startswith("**Control commands**") and "/endturn" in control
+	assert "/roll" not in control and "/card conjure" in control
+	everything = help_list("all")
+	headers = [line for line in everything.splitlines() if line.startswith("**")]
+	assert headers == [
+		"**ADAMA commands**",
+		"**President commands**",
+		"**Control commands**",
+	]
+
+
 def test_groups_are_control_only():
 	bot = make_bot()
 	asyncio.run(load_cogs(bot))
 	shuttle = bot.tree.get_command("shuttle")
 	assert isinstance(shuttle, discord.app_commands.Group)
 	assert {c.name for c in shuttle.commands} == {"conjure", "destroy", "teleport"}
-	for group in ("shuttle",):
+	for group in ("shuttle", "card"):
 		command = bot.tree.get_command(group)
 		assert isinstance(command, discord.app_commands.Group)
 		for sub in command.commands:
@@ -258,6 +311,25 @@ def test_fleet_status_lists_every_ship():
 	assert "`0126` Jump Drive ✅" in fleet_status(galaxy)
 
 
+def test_only_open_calls_can_be_taken():
+	from adama.discord_ops import CALL_EMOJI, TAKEN_BY, is_open_call
+
+	def message(author: int, saluted: bool, content: str = "call", embeds=()):
+		reaction = SimpleNamespace(me=saluted, emoji=CALL_EMOJI)
+		return SimpleNamespace(
+			author=SimpleNamespace(id=author),
+			reactions=[reaction],
+			content=content,
+			embeds=list(embeds),
+		)
+
+	assert is_open_call(message(1, True), bot_id=1)
+	assert not is_open_call(message(2, True), bot_id=1)  # not the bot's
+	assert not is_open_call(message(1, False), bot_id=1)  # a log, not a call
+	assert not is_open_call(message(1, True, f"call\n{TAKEN_BY}<@5>"), bot_id=1)
+	assert not is_open_call(message(1, True, embeds=[object()]), bot_id=1)
+
+
 def test_split_message():
 	assert split_message("a\nb", limit=3) == ["a\nb"]
 	assert split_message("aa\nbb", limit=3) == ["aa", "bb"]
@@ -312,3 +384,63 @@ def test_default_fleet_loads_when_no_files_are_attached():
 	assert len(files) == 11
 	ships, problems = validate_ship_files(files, Galaxy(1))
 	assert not problems and len(ships) == 11
+
+
+def test_offices_can_be_set_in_the_lobby(monkeypatch):
+	import sys
+
+	import pytest
+
+	from adama import discord_ops as ops
+	from adama.models.galaxy import STATE_INITIALIZING
+	from adama.perms import UserError
+
+	bot = make_bot()
+	asyncio.run(load_cogs(bot))
+	cog = bot.get_cog("CharacterCommands")
+	galaxy = Galaxy(1)
+	galaxy.state = STATE_INITIALIZING
+	member = SimpleNamespace(id=42, mention="<@42>", roles=[])
+	changed: list = []
+
+	async def set_member_role(m, name, given):
+		changed.append((name, given))
+		if given:
+			m.roles.append(SimpleNamespace(name=name))
+		else:
+			m.roles = [r for r in m.roles if r.name != name]
+
+	async def fake_reply(*args, **kwargs):
+		pass
+
+	monkeypatch.setattr(ops, "set_member_role", set_member_role)
+	monkeypatch.setattr(sys.modules[type(cog).__module__], "reply", fake_reply)
+
+	def run(offices, given):
+		return asyncio.run(
+			cog._lobby_offices(None, galaxy, member, offices, given, "done")
+		)
+
+	with pytest.raises(UserError, match="isn't in the pregame lobby"):
+		run(["president"], True)
+	galaxy.discord.admitted.append(42)
+	assert run(["president"], True) and changed == [("President", True)]
+	with pytest.raises(UserError, match="already has the President role"):
+		run(["president"], True)
+	assert run(["president", "councillor"], False)
+	assert ("President", False) in changed and not member.roles
+	with pytest.raises(UserError, match="doesn't hold"):
+		run(["councillor"], False)
+	galaxy.state = "in progress"
+	assert not run(["president"], True)  # the game changes the player instead
+
+
+def test_only_starting_games_gets_out_of_game_permissions():
+	from adama import channels as ch
+	from adama.discord_ops import _overwrites
+
+	assert ch.SPECS[ch.CAT_OUT_OF_GAME].visibility == ch.SERVER_DEFAULT
+	assert ch.SPECS[ch.STARTING_GAMES].visibility == ch.PUBLIC_READ
+	guild = SimpleNamespace(default_role="everyone")
+	assert _overwrites(guild, ch.SERVER_DEFAULT, "control") == {}
+	assert set(_overwrites(guild, ch.PUBLIC_READ, "control")) == {"everyone", "control"}

@@ -99,6 +99,7 @@ def start_game(
 					CONTROL,
 					f"{mention(player)} has no crew role, so they have no location. "
 					"Place them with /addteam or /teleportplayer.",
+					claim=True,
 				)
 			)
 

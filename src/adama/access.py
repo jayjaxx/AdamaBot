@@ -25,6 +25,7 @@ class Access:
 READ_ONLY = Access()
 # Impermanence: ship channels show only messages posted while you're there.
 IMPERMANENT = Access(send=True, history=False)
+IMPERMANENT_READ_ONLY = Access(history=False)
 POST = Access(send=True)
 LISTEN = Access(connect=True)
 VOICE = Access(connect=True, speak=True)
@@ -53,6 +54,7 @@ def managed_channels(galaxy: Galaxy) -> set[int]:
 		ch.NEWSCASTS,
 		ch.CONTROL_BROADCASTS,
 		ch.VC_FLEET_ANNOUNCEMENTS,
+		ch.COUNCIL_CHAMBERS,
 		ch.VC_COUNCIL_CHAMBERS,
 		ch.BRIG,
 		ch.VC_BRIG,
@@ -112,6 +114,10 @@ def player_access(galaxy: Galaxy, player: Player) -> dict[int, Access]:
 			may_speak = council or player.permitted
 			if may_speak or not galaxy.council_sealed:
 				give(ch.VC_COUNCIL_CHAMBERS, VOICE if may_speak else LISTEN)
+				give(
+					ch.COUNCIL_CHAMBERS,
+					IMPERMANENT if may_speak else IMPERMANENT_READ_ONLY,
+				)
 			if player.councillor:
 				give(ch.COUNCIL_NOTES, POST)
 

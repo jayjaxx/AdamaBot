@@ -343,11 +343,12 @@ class GameCommands(commands.Cog):
 			)
 			return
 		chat = ops.get_text(guild, self.galaxy(interaction), ch.CONTROL_CHAT)
-		await chat.send(
+		message = await chat.send(
 			f"{interaction.user.mention} asks to become a controller. Approve with "
 			f"`/gm user:@{interaction.user.name}`.",
 			allowed_mentions=discord.AllowedMentions.none(),
 		)
+		await ops.offer_call(message)
 		await reply(
 			interaction, "Your request has been sent to control.", ephemeral=True
 		)

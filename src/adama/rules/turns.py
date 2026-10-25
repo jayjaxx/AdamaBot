@@ -142,7 +142,9 @@ def morale_roll(
 
 	riot_text = ""
 	if ship.morale_level == 0:
-		notices.append(Notice(CONTROL, f"The {ship.name}'s morale has reached **0**."))
+		notices.append(
+			Notice(CONTROL, f"The {ship.name}'s morale has reached **0**.", claim=True)
+		)
 		riot_text = "Morale is 0: control has been alerted, and there is no riot roll."
 	elif riot_threshold(ship.morale_level):
 		result.riot_roll = rng.randint(1, 6)
@@ -285,7 +287,9 @@ def add_morale(galaxy: Galaxy, target: str, amount: int) -> list[Notice]:
 		)
 		if ship.morale_level == 0:
 			notices.append(
-				Notice(CONTROL, f"The {ship.name}'s morale has reached **0**.")
+				Notice(
+					CONTROL, f"The {ship.name}'s morale has reached **0**.", claim=True
+				)
 			)
 	return notices
 

@@ -8,10 +8,10 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
-from adama.cogs._shared import ship_for_channel
+from adama.cogs._shared import OFFICES, ship_for_channel
 from adama.models.galaxy import Galaxy
-from adama.models.player import LOCATION_COMBAT
-from adama.perms import UserError, control_only, is_gm
+from adama.models.player import LOCATION_COMBAT, Player
+from adama.perms import UserError, is_gm
 from adama.status import (
 	bridge_status,
 	fleet_list,
@@ -23,6 +23,19 @@ from adama.status import (
 logger = logging.getLogger()
 
 GM = {"gm": True}
+
+HELP_PLAYERS = "players"
+HELP_CONTROL = "control"
+HELP_ALL = "all"
+HELP_CHOICES = [
+	app_commands.Choice(name="players (default)", value=HELP_PLAYERS),
+	app_commands.Choice(name="control", value=HELP_CONTROL),
+	*(
+		app_commands.Choice(name=f"{header} only", value=office)
+		for office, (header, _) in OFFICES.items()
+	),
+	app_commands.Choice(name="all, by section", value=HELP_ALL),
+]
 
 
 class GeneralCommands(commands.Cog):
@@ -90,12 +103,14 @@ class GeneralCommands(commands.Cog):
 				raise UserError(
 					f"Only crew of the {ship.name} can check the bridge status."
 				)
+		# Only the person who asked sees it, so the status doesn't bury the channel's
+		# conversation.
 		text = (
 			bridge_status(galaxy, ship)
 			if kind == ch.SHIP_BRIDGE
 			else hangar_status(galaxy, ship)
 		)
-		await reply(interaction, text)
+		await reply(interaction, text, ephemeral=True)
 
 	@app_commands.command(
 		name="fleet", description="List the ships at your coordinates"
@@ -146,35 +161,70 @@ class GeneralCommands(commands.Cog):
 		text = f"{control.mention if control else 'Control'}: {interaction.user.mention}{where} summons control from {link}"
 		if message:
 			text += f":\n> {message}"
-		await chat.send(
+		call = await chat.send(
 			text,
 			allowed_mentions=discord.AllowedMentions(
 				roles=[control] if control else False, users=False
 			),
 		)
+		await ops.offer_call(call)
 		await reply(interaction, "Control has been summoned.", ephemeral=True)
 
-	def command_list(self, *, gm: bool) -> str:
-		commands_ = sorted(self.bot.tree.get_commands(), key=lambda c: c.name)
+	def _lines(self, *, gm: bool, office: str | None = None) -> list[str]:
+		"""One line per command: control commands (gm), or player commands of one office
+		(None for the commands every player has)."""
 		lines: list[str] = []
-		for c in commands_:
+		for c in sorted(self.bot.tree.get_commands(), key=lambda c: c.name):
 			if bool(c.extras.get("gm")) != gm:
 				continue
 			# A group (e.g. /station) lists each of its subcommands.
 			listed = c.commands if isinstance(c, app_commands.Group) else [c]
-			lines.extend(
-				f"`/{s.qualified_name}` {getattr(s, 'description', '')}" for s in listed
-			)
-		return "\n".join(lines)
+			for s in listed:
+				if not gm and s.extras.get("office") != office:
+					continue
+				where = s.extras.get("where")
+				tag = f" *({where})*" if where else ""
+				description = getattr(s, "description", "")
+				if office is not None:
+					description = description.removeprefix(f"{OFFICES[office][0]}: ")
+				lines.append(f"`/{s.qualified_name}`{tag} {description}")
+		return lines
 
-	@app_commands.command(name="help", description="List the player commands")
-	async def help(self, interaction: discord.Interaction):
+	def command_list(self, which: str, player: Player | None = None) -> str:
+		"""The /help text. `which` is a HELP_LISTS value; the player list adds the
+		offices `player` holds. Each office and control get their own header."""
+		sections: list[tuple[str, list[str]]] = []
+		if which in (HELP_PLAYERS, HELP_ALL):
+			sections.append(("ADAMA commands", self._lines(gm=False)))
+		for office, (header, holds) in OFFICES.items():
+			held = which == HELP_PLAYERS and player is not None and holds(player)
+			if held or which in (office, HELP_ALL):
+				sections.append(
+					(f"{header} commands", self._lines(gm=False, office=office))
+				)
+		if which in (HELP_CONTROL, HELP_ALL):
+			sections.append(("Control commands", self._lines(gm=True)))
+		return "\n\n".join(
+			"\n".join([f"**{header}**", *lines]) for header, lines in sections
+		)
+
+	@app_commands.command(name="help", description="List the commands you can use")
+	@app_commands.rename(which="list")
+	@app_commands.describe(
+		which="Control only: which list to show (players by default)"
+	)
+	@app_commands.choices(which=HELP_CHOICES)
+	async def help(self, interaction: discord.Interaction, which: str = HELP_PLAYERS):
 		guild = interaction.guild
 		assert guild is not None
-		text = "**ADAMA commands**\n" + self.command_list(gm=False)
-		pda = guild.get_channel(
-			self.galaxy(interaction).discord.pdas.get(interaction.user.id, 0)
-		)
+		galaxy = self.galaxy(interaction)
+		if which != HELP_PLAYERS and not is_gm(interaction.user, self.roles):
+			raise UserError("Only control can pick a different command list.")
+		player = galaxy.player_by_user(interaction.user.id)
+		text = self.command_list(which, player)
+		# The full list is several messages: answer Discord before sending them.
+		await interaction.response.defer(ephemeral=True)
+		pda = guild.get_channel(galaxy.discord.pdas.get(interaction.user.id, 0))
 		if isinstance(pda, discord.TextChannel):
 			await ops.send_long(pda, text)
 			await reply(
@@ -187,21 +237,6 @@ class GeneralCommands(commands.Cog):
 			await reply(interaction, text, ephemeral=True)
 			return
 		await reply(interaction, "Sent you the command list in a DM.", ephemeral=True)
-
-	@app_commands.command(
-		name="gmhelp", description="List the control commands", extras=GM
-	)
-	@control_only()
-	async def gmhelp(self, interaction: discord.Interaction):
-		text = "**ADAMA control commands**\n" + self.command_list(gm=True)
-		try:
-			await ops.send_long(interaction.user, text)
-		except discord.Forbidden:
-			await reply(interaction, text, ephemeral=True)
-			return
-		await reply(
-			interaction, "Sent you the control command list in a DM.", ephemeral=True
-		)
 
 	@app_commands.command(
 		name="shutdown",

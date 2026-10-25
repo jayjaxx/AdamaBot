@@ -8,6 +8,7 @@ BRIDGE = "bridge"
 PDA = "pda"
 CONTROL = "control"
 BROADCAST = "broadcast"
+BRIG = "brig"
 
 
 def sentence(text: str) -> str:
@@ -30,8 +31,13 @@ class GameError(Exception):
 @dataclass(frozen=True)
 class Notice:
 	"""A message to post. `target` is HANGAR or BRIDGE (with a ship ID), PDA (with a
-	player ID), CONTROL (#control-chat) or BROADCAST (#control-broadcasts)."""
+	player ID), CONTROL (#control-chat), BROADCAST (#control-broadcasts) or BRIG (#brig).
+	`ping` (CONTROL only) mentions the control role. `claim` (CONTROL only) marks a
+	call that needs a controller to act: the bot salutes it, and the first controller
+	to salute takes it."""
 
 	target: str
 	text: str
 	id: str = ""
+	ping: bool = False
+	claim: bool = False

@@ -14,6 +14,9 @@ STAGE = "stage"
 CONTROL_ONLY = "control"  # control role only
 PUBLIC_READ = "public read"  # everyone can read and react, control can post
 HIDDEN = "hidden"  # control role only, until players are given access individually
+# The server's own permissions: the bot never sets any (the Out of Game category, which
+# can hold the server's ordinary channels next to #starting-games).
+SERVER_DEFAULT = "server default"
 
 CAT_OUT_OF_GAME = "cat_out_of_game"
 CAT_PREGAME = "cat_pregame"
@@ -36,6 +39,7 @@ COUNCIL_NOTES = "council_notes"
 NEWSCASTS = "newscasts"
 CONTROL_BROADCASTS = "control_broadcasts"
 VC_FLEET_ANNOUNCEMENTS = "vc_fleet_announcements"
+COUNCIL_CHAMBERS = "council_chambers"
 VC_COUNCIL_CHAMBERS = "vc_council_chambers"
 BRIG = "brig"
 VC_BRIG = "vc_brig"
@@ -54,7 +58,7 @@ class ChannelSpec:
 
 
 CATEGORIES = [
-	ChannelSpec(CAT_OUT_OF_GAME, "Out of Game", "category", None, PUBLIC_READ),
+	ChannelSpec(CAT_OUT_OF_GAME, "Out of Game", "category", None, SERVER_DEFAULT),
 	ChannelSpec(CAT_PREGAME, "Pregame Lobby", "category", None),
 	ChannelSpec(CAT_CONTROL, "Control", "category", None, CONTROL_ONLY),
 	ChannelSpec(CAT_FLEET, "Fleet", "category", None),
@@ -98,7 +102,10 @@ CHANNELS = [
 		CAT_FLEET,
 		cleared_on_init=True,
 	),
-	# These two move into the council chambers ship's and brig ship's categories.
+	# These move into the council chambers ship's and brig ship's categories.
+	ChannelSpec(
+		COUNCIL_CHAMBERS, "council-chambers", TEXT, CAT_FLEET, cleared_on_init=True
+	),
 	ChannelSpec(VC_COUNCIL_CHAMBERS, "Council Chambers", VOICE, CAT_FLEET),
 	ChannelSpec(BRIG, "brig", TEXT, CAT_FLEET, cleared_on_init=True),
 	ChannelSpec(VC_BRIG, "Brig", VOICE, CAT_FLEET, cleared_on_init=True),

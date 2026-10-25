@@ -8,7 +8,15 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
-from adama.cogs._shared import CrewPicker, choices, ship_for_channel, ship_here
+from adama.cogs._shared import (
+	WHERE_BRIDGE,
+	WHERE_HANGAR,
+	WHERE_HANGAR_CREW,
+	CrewPicker,
+	choices,
+	ship_for_channel,
+	ship_here,
+)
 from adama.models.galaxy import Galaxy
 from adama.models.resources import RESOURCE_NAMES
 from adama.models.ship import RATION_LEVELS, Ship
@@ -183,7 +191,9 @@ class ShipCommands(commands.Cog):
 	# Resources
 
 	@app_commands.command(
-		name="load", description="Load resources from your ship onto a docked shuttle"
+		name="load",
+		extras=WHERE_HANGAR_CREW,
+		description="Load resources from your ship onto a docked shuttle",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
 	@app_commands.choices(resource=RESOURCE_CHOICES)
@@ -208,6 +218,7 @@ class ShipCommands(commands.Cog):
 
 	@app_commands.command(
 		name="unload",
+		extras=WHERE_HANGAR,
 		description="Unload resources from a docked shuttle onto this ship",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -330,7 +341,9 @@ class ShipCommands(commands.Cog):
 		)
 
 	@app_commands.command(
-		name="activate", description="Activate one of your ship's stations"
+		name="activate",
+		extras=WHERE_BRIDGE,
+		description="Activate one of your ship's stations",
 	)
 	@app_commands.describe(
 		station="The station to activate",
@@ -358,7 +371,9 @@ class ShipCommands(commands.Cog):
 		await self._with_crew(interaction, station, False, choose_crew, run)
 
 	@app_commands.command(
-		name="repair", description="Repair a damaged station on your ship"
+		name="repair",
+		extras=WHERE_BRIDGE,
+		description="Repair a damaged station on your ship",
 	)
 	@app_commands.describe(
 		choose_crew="Pick the crew yourself (otherwise untrained crew is used first)"
@@ -379,6 +394,7 @@ class ShipCommands(commands.Cog):
 
 	@app_commands.command(
 		name="disperse",
+		extras=WHERE_BRIDGE,
 		description="Send an on-foot unit to break up a riot (1d6: 4+ succeeds)",
 	)
 	@app_commands.autocomplete(station=station_autocomplete, unit=on_foot_autocomplete)
@@ -492,6 +508,7 @@ class ShipCommands(commands.Cog):
 
 	@app_commands.command(
 		name="setrationlevel",
+		extras=WHERE_BRIDGE,
 		description="Set your ship's food or water rations for morale rolls",
 	)
 	@app_commands.choices(resource=FOOD_WATER, level=RATION_CHOICES)
@@ -508,7 +525,9 @@ class ShipCommands(commands.Cog):
 			await self.finish(interaction, galaxy, notices, "Rations set.")
 
 	@app_commands.command(
-		name="moraleroll", description="Make your ship's morale roll for this turn"
+		name="moraleroll",
+		extras=WHERE_BRIDGE,
+		description="Make your ship's morale roll for this turn",
 	)
 	@app_commands.describe(
 		force="Control only: roll again even if the ship has already rolled this turn"

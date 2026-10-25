@@ -18,7 +18,7 @@ from adama.config import RolesConfig
 from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import Ship
-from adama.rules import BRIDGE, BROADCAST, CONTROL, HANGAR, PDA, Notice
+from adama.rules import BRIDGE, BRIG, BROADCAST, CONTROL, HANGAR, PDA, Notice
 from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.status import fleet_status, split_message
 
@@ -61,6 +61,8 @@ def check_bot_permissions(guild: discord.Guild) -> None:
 def _overwrites(
 	guild: discord.Guild, visibility: str, control: discord.Role
 ) -> dict[discord.Role | discord.Member, discord.PermissionOverwrite]:
+	if visibility == ch.SERVER_DEFAULT:
+		return {}
 	if visibility == ch.PUBLIC_READ:
 		return {
 			guild.default_role: discord.PermissionOverwrite(
@@ -135,12 +137,17 @@ async def grant_gm_commands(role: discord.Role) -> None:
 async def ensure_server(
 	guild: discord.Guild, galaxy: Galaxy, roles: RolesConfig
 ) -> discord.Role:
-	"""Finds or creates the control role and every permanent channel, storing their IDs."""
+	"""Finds or creates the control role, the office roles and every permanent
+	channel, storing the channel IDs."""
 	control = get_control_role(guild, roles)
 	if control is None:
 		control = await guild.create_role(
 			name=roles.CONTROL, reason="ADAMA control role"
 		)
+	# Office roles exist from the start, so control can hand them out in the lobby.
+	for name in office_role_names(roles):
+		if discord.utils.get(guild.roles, name=name) is None:
+			await guild.create_role(name=name, reason="ADAMA office role")
 	await grant_gm_commands(control)
 	starter = discord.utils.get(guild.roles, name=roles.GAME_STARTER)
 	if starter is not None:
@@ -170,6 +177,22 @@ async def ensure_server(
 					overwrites = None
 			existing = await _create(guild, spec.kind, spec.name, category, overwrites)
 			logger.info("Created #%s in %s", spec.name, guild.name)
+		elif (
+			spec.category is not None
+			and ch.SPECS[spec.category].visibility == ch.SERVER_DEFAULT
+			and isinstance(existing, discord.TextChannel)
+			and existing.permissions_synced
+		):
+			# Older setups had this channel copy its category's permissions; give it its
+			# own so the category's other channels are left to the server.
+			for target, overwrite in _overwrites(
+				guild, spec.visibility, control
+			).items():
+				await existing.set_permissions(
+					target,
+					overwrite=overwrite,
+					reason="ADAMA: #starting-games keeps its own permissions",
+				)
 		galaxy.discord.channels[spec.key] = existing.id
 	return control
 
@@ -199,7 +222,7 @@ async def _move(channel: GuildChannel | None, category: GuildChannel | None) -> 
 
 
 async def place_council_and_brig(guild: discord.Guild, galaxy: Galaxy) -> None:
-	"""Puts VC Council Chambers and the brig channels in their ships' categories, or back in
+	"""Puts the council chambers channels and the brig channels in their ships' categories, or back in
 	the Fleet category when no ship holds them."""
 	home = get_channel(guild, galaxy, ch.CAT_FLEET)
 
@@ -214,6 +237,7 @@ async def place_council_and_brig(guild: discord.Guild, galaxy: Galaxy) -> None:
 
 	council = category_of(galaxy.council_chambers_ship)
 	brig = category_of(galaxy.brig_ship)
+	await _move(get_channel(guild, galaxy, ch.COUNCIL_CHAMBERS), council)
 	await _move(get_channel(guild, galaxy, ch.VC_COUNCIL_CHAMBERS), council)
 	await _move(get_channel(guild, galaxy, ch.BRIG), brig)
 	await _move(get_channel(guild, galaxy, ch.VC_BRIG), brig)
@@ -402,11 +426,10 @@ async def delete_start_message(guild: discord.Guild, galaxy: Galaxy) -> None:
 async def send_long(
 	channel: discord.abc.Messageable, text: str, **kwargs
 ) -> discord.Message:
-	"""Sends text split into Discord-sized messages, without pinging anyone. Returns the first."""
-	messages = [
-		await channel.send(chunk, allowed_mentions=NO_MENTIONS, **kwargs)
-		for chunk in split_message(text)
-	]
+	"""Sends text split into Discord-sized messages, without pinging anyone unless
+	`allowed_mentions` says otherwise. Returns the first."""
+	kwargs.setdefault("allowed_mentions", NO_MENTIONS)
+	messages = [await channel.send(chunk, **kwargs) for chunk in split_message(text)]
 	return messages[0]
 
 
@@ -666,9 +689,15 @@ async def _leave_lost_voice(
 	allowed = desired.get(voice.id)
 	if allowed is not None and allowed.connect:
 		return
-	hangar_vc = ship_channel(guild, galaxy, player.location, ch.SHIP_VC_HANGAR)
-	if travelled and isinstance(hangar_vc, discord.VoiceChannel):
-		await member.move_to(hangar_vc)
+	# Travelling moves you into your new hangar; being brigged, into the brig.
+	if player.brigged:
+		target = get_channel(guild, galaxy, ch.VC_BRIG)
+	elif travelled:
+		target = ship_channel(guild, galaxy, player.location, ch.SHIP_VC_HANGAR)
+	else:
+		target = None
+	if isinstance(target, discord.VoiceChannel):
+		await member.move_to(target)
 		return
 	await member.move_to(None)
 	if isinstance(pda, discord.TextChannel):
@@ -694,15 +723,27 @@ async def sync_crew_roles(guild: discord.Guild, galaxy: Galaxy, player: Player) 
 
 
 async def post_notices(
-	guild: discord.Guild, galaxy: Galaxy, notices: list[Notice]
+	guild: discord.Guild,
+	galaxy: Galaxy,
+	notices: list[Notice],
+	roles: RolesConfig | None = None,
 ) -> None:
 	"""Posts every notice. Different channels are posted to at the same time (each has
-	its own rate limit); notices for the same channel keep their order."""
-	queues: dict[int, tuple[discord.TextChannel, list[str]]] = {}
+	its own rate limit); notices for the same channel keep their order. A notice with
+	`ping` mentions the control role (found through `roles`); one with `claim` is
+	offered to control to take (see `take_call`)."""
+	control = get_control_role(guild, roles) if roles else None
+	queues: dict[int, tuple[discord.TextChannel, list[tuple[str, bool, bool]]]] = {}
 	for notice in notices:
 		channel = _notice_channel(guild, galaxy, notice)
 		if isinstance(channel, discord.TextChannel):
-			queues.setdefault(channel.id, (channel, []))[1].append(notice.text)
+			ping = notice.ping and control is not None
+			text = (
+				f"{control.mention} {notice.text}" if ping and control else notice.text
+			)
+			queues.setdefault(channel.id, (channel, []))[1].append(
+				(text, ping, notice.claim)
+			)
 		else:
 			logger.warning(
 				"Could not post notice to %s %s: %s",
@@ -711,11 +752,59 @@ async def post_notices(
 				notice.text,
 			)
 
-	async def post_in_order(channel: discord.TextChannel, texts: list[str]) -> None:
-		for text in texts:
-			await send_long(channel, text)
+	async def post_in_order(
+		channel: discord.TextChannel, texts: list[tuple[str, bool, bool]]
+	) -> None:
+		for text, ping, claim in texts:
+			mentions = (
+				discord.AllowedMentions(roles=[control], users=False, everyone=False)
+				if ping and control
+				else NO_MENTIONS
+			)
+			message = await send_long(channel, text, allowed_mentions=mentions)
+			if claim:
+				await offer_call(message)
 
 	await asyncio.gather(*(post_in_order(c, texts) for c, texts in queues.values()))
+
+
+# Calls for control: the bot salutes them, and the first controller to salute takes it.
+CALL_EMOJI = "🫡"
+TAKEN_BY = "🫡 **Taken by** "
+_call_locks: dict[int, asyncio.Lock] = {}
+
+
+async def offer_call(message: discord.Message) -> None:
+	try:
+		await message.add_reaction(CALL_EMOJI)
+	except discord.HTTPException:
+		logger.warning("Could not salute call %s", message.id)
+
+
+def is_open_call(message: discord.Message, bot_id: int) -> bool:
+	"""The bot's own message, saluted by the bot, and not yet taken."""
+	saluted = any(r.me and str(r.emoji) == CALL_EMOJI for r in message.reactions)
+	taken = TAKEN_BY in message.content or bool(message.embeds)
+	return message.author.id == bot_id and saluted and not taken
+
+
+async def take_call(
+	channel: discord.TextChannel, message_id: int, member: discord.Member
+) -> None:
+	"""Marks the call as taken by `member`, unless someone already took it."""
+	async with _call_locks.setdefault(channel.id, asyncio.Lock()):
+		try:
+			message = await channel.fetch_message(message_id)
+		except discord.HTTPException:
+			return
+		if not is_open_call(message, channel.guild.me.id):
+			return
+		taken = TAKEN_BY + member.mention
+		content = f"{message.content}\n{taken}"
+		if len(content) <= 2000:
+			await message.edit(content=content, allowed_mentions=NO_MENTIONS)
+		else:  # no room in the text: an embed has its own limit
+			await message.edit(embed=discord.Embed(description=taken))
 
 
 def _notice_channel(
@@ -732,7 +821,69 @@ def _notice_channel(
 		return get_channel(guild, galaxy, ch.CONTROL_CHAT)
 	if notice.target == BROADCAST:
 		return get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
+	if notice.target == BRIG:
+		return get_channel(guild, galaxy, ch.BRIG)
 	return None
+
+
+def office_role_names(roles: RolesConfig) -> list[str]:
+	"""The roles /startgame reads offices from (the Press included)."""
+	return [roles.PRESIDENT, roles.COUNCILLOR, roles.FIRST_RESPONDER, roles.PRESS]
+
+
+def game_role_names(galaxy: Galaxy, roles: RolesConfig) -> set[str]:
+	"""Every role the game gives: crews, offices and the Press."""
+	names = {ch.crew_role_name(ship.name) for ship in galaxy.ships.values()}
+	return names | set(office_role_names(roles))
+
+
+async def strip_game_roles(
+	guild: discord.Guild, galaxy: Galaxy, player: Player, roles: RolesConfig
+) -> list[str]:
+	"""Removes the player's game roles in one call; returns the names removed."""
+	member = guild.get_member(player.discord_user_id)
+	if member is None:
+		return []
+	names = game_role_names(galaxy, roles)
+	removed = [role for role in member.roles if role.name in names]
+	if removed:
+		await member.remove_roles(*removed, reason="ADAMA: died")
+	return [role.name for role in removed]
+
+
+async def give_roles(guild: discord.Guild, player: Player, names: list[str]) -> None:
+	member = guild.get_member(player.discord_user_id)
+	if member is None:
+		return
+	wanted = [r for r in guild.roles if r.name in names and r not in member.roles]
+	if wanted:
+		await member.add_roles(*wanted, reason="ADAMA")
+
+
+async def set_role(
+	guild: discord.Guild, player: Player, name: str, given: bool
+) -> None:
+	"""Gives or removes one role by name (e.g. President when elected or deposed)."""
+	member = guild.get_member(player.discord_user_id)
+	if member is not None:
+		await set_member_role(member, name, given)
+
+
+async def set_member_role(member: discord.Member, name: str, given: bool) -> None:
+	role = discord.utils.get(member.guild.roles, name=name)
+	if role is None:
+		return
+	if given and role not in member.roles:
+		await member.add_roles(role, reason="ADAMA")
+	elif not given and role in member.roles:
+		await member.remove_roles(role, reason="ADAMA")
+
+
+async def sync_players(
+	guild: discord.Guild, galaxy: Galaxy, players: list[Player]
+) -> None:
+	"""sync_player for several players at once."""
+	await asyncio.gather(*(sync_player(guild, galaxy, p) for p in players))
 
 
 async def close_lobby(guild: discord.Guild, galaxy: Galaxy) -> None:
@@ -762,6 +913,7 @@ async def set_role_permissions(
 		ch.COUNCIL_NOTES,
 		ch.NEWSCASTS,
 		ch.CONTROL_BROADCASTS,
+		ch.COUNCIL_CHAMBERS,
 		ch.BRIG,
 	):
 		channel = get_channel(guild, galaxy, key)

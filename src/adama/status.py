@@ -1,5 +1,6 @@
 """Text for /status, /fleet and #fleet-status. Pure functions of the game state."""
 
+from adama.models.action_card import ActionCard
 from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.resources import ResourcesContainer
@@ -113,6 +114,21 @@ def _ration(ship: Ship, resource: str) -> str:
 	return f"{level} ({amount} {resource})"
 
 
+def card_line(galaxy: Galaxy, card: ActionCard) -> str:
+	"""A card with its use, restriction and ability, for the bridge and PDA."""
+	if not card.retained:
+		use = "single use"
+	elif card.once_per_turn:
+		use = "once per turn" + (", used this turn" if card.exhausted else "")
+	else:
+		use = "reusable"
+	tags = [use]
+	if card.affiliation_restricted:
+		tags.append(f"restricted to {_ship_name(galaxy, card.affiliation)} crew")
+	line = f"`{card.id}` **{card.name}** ({'; '.join(tags)})"
+	return line + (f": {card.description}" if card.description else "")
+
+
 def bridge_status(galaxy: Galaxy, ship: Ship) -> str:
 	lines = [hangar_status(galaxy, ship).replace("— Hangar", "— Bridge", 1), ""]
 
@@ -147,7 +163,7 @@ def bridge_status(galaxy: Galaxy, ship: Ship) -> str:
 	lines.extend(units or ["none"])
 
 	lines.append("\n**Unclaimed action cards**")
-	cards = [f"`{c.id}` {c.name}" for c in ship.action_cards.values()]
+	cards = [card_line(galaxy, c) for c in ship.action_cards.values()]
 	lines.extend(cards or ["none"])
 	return "\n".join(lines)
 
@@ -194,9 +210,7 @@ def pda_status(galaxy: Galaxy, player: Player) -> str:
 		for _, shuttle in galaxy.iter_shuttles()
 		if shuttle.id in player.clearances
 	)
-	cards = [
-		f"`{c.id}` **{c.name}**: {c.description}" for c in player.action_cards.values()
-	]
+	cards = [card_line(galaxy, c) for c in player.action_cards.values()]
 	lines = [
 		"## PDA",
 		f"**Health:** {', '.join(health) or 'healthy'}",

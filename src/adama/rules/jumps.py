@@ -96,6 +96,7 @@ def start_jump(galaxy: Galaxy, ship: Ship) -> tuple[Jump, list[Notice]]:
 				Notice(
 					CONTROL,
 					f"The {ship.name} tried to jump without enough fuel ({ship.resources.fuel} of {fuel}).",
+					claim=True,
 				)
 			],
 		)
@@ -180,6 +181,7 @@ def complete_jump(galaxy: Galaxy, jump: Jump) -> ShipMoved | None:
 				Notice(
 					CONTROL,
 					f"The {ship.name}'s jump failed: not enough fuel ({ship.resources.fuel} of {fuel}).",
+					claim=True,
 				),
 			]
 		)

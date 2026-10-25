@@ -8,7 +8,7 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
-from adama.cogs._shared import player_of, ship_named
+from adama.cogs._shared import WHERE_HANGAR, player_of, ship_named
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_COMBAT, Player
 from adama.perms import UserError, control_only
@@ -71,6 +71,7 @@ class PlayerCommands(commands.Cog):
 
 	@app_commands.command(
 		name="travel",
+		extras=WHERE_HANGAR,
 		description="Move to another ship at your coordinates (or into combat)",
 	)
 	@app_commands.autocomplete(destination=destination_autocomplete)
