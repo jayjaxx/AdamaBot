@@ -1,22 +1,27 @@
+import sqlite3
 from dataclasses import dataclass, field
 
+from adama.db.database import get_connection
 from adama.repositories import GalaxyRepository
 from adama.services import GalaxyService
 
-@dataclass
-class Repositories():
-	galaxy: GalaxyRepository = field(default_factory=GalaxyRepository)
 
 @dataclass
-class Services():
+class Repositories:
+	galaxy: GalaxyRepository
+
+
+@dataclass
+class Services:
 	galaxy: GalaxyService
 
+
 @dataclass
-class Container():
-	repos: Repositories = field(default_factory=Repositories)
+class Container:
+	conn: sqlite3.Connection = field(default_factory=get_connection)
+	repos: Repositories = field(init=False)
 	services: Services = field(init=False)
 
 	def __post_init__(self):
-		self.services = Services(
-			galaxy=GalaxyService(self.repos.galaxy)
-		)
+		self.repos = Repositories(galaxy=GalaxyRepository(self.conn))
+		self.services = Services(galaxy=GalaxyService(self.repos.galaxy))

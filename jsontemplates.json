@@ -1,20 +1,20 @@
 {
-    "ship": {
+    "YY00": {
         "name": "Ship Name",
-        "ID": "YY00",
         "coordinates": "12903",
         "next_coordinates": "",
         "sabotage_coordinates": "",
-        "food_ration_level": "none",
-        "water_ration_level": "none",
+        "food_ration_level": "normal",
+        "water_ration_level": "normal",
         "isolated": false,
-        "lockdown": false,
+        "destroyed": false,
+        "jumping": false,
         "morale_level": 10,
-        "morale_role_modifiers": {
+        "morale_rolled_this_turn": false,
+        "damage_taken_this_turn": 0,
+        "morale_roll_modifiers": {
             "temp_morale_roll_modifier": 0,
-            "perm_morale_roll_modifier": 0,
-            "fleet_temp_morale_roll_modifier": 0,
-            "fleet_perm_morale_roll_modifier": 0
+            "perm_morale_roll_modifier": 0
         },
         "resources": {
             "food": 0,
@@ -37,8 +37,8 @@
                 "water": 0
             },
             "low": {
-                "food": 0,
-                "water": 0
+                "food": null,
+                "water": null
             },
             "minimum": {
                 "food": 0,
@@ -60,17 +60,58 @@
         },
         "players": {},
         "stations": {
-            "YY1X": {
-                "name": "Reployer",
-                "description": "What the hell is a 'Reployer'?",
+            "YY10": {
+                "name": "Station Name",
+                "description": "What the station does when activated.",
                 "usable": true,
                 "reusable": false,
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
-                "damaged_description": "Nobody knows what a 'reployer' is",
+                "damaged_description": "What happens while it is damaged.",
                 "alert_gm_on_use": false,
                 "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "team",
+                    "crew_amount": 1
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 3
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 2,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
+            },
+            "YY11": {
+                "name": "Multi-mode Station",
+                "description": "Choose one mode when activating.",
+                "usable": true,
+                "reusable": false,
+                "startofturn": false,
+                "exhausted": false,
+                "damaged": false,
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
                 "input": {
                     "food": 0,
                     "fuel": 0,
@@ -88,41 +129,128 @@
                     "water": 0
                 },
                 "repair_cost": {
-                    "materials": 0,
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
                     "crew_keyword": "engineer",
                     "crew_amount": 1
-                }
-            }
-        },
-        "action_cards": {
-            "YY4X": {
-                "name": "Do Cool Thing",
-                "retained": false,
-                "once_per_turn": true,
+                },
+                "modes": [
+                    {
+                        "name": "mode one",
+                        "input": {
+                            "food": 0,
+                            "fuel": 0,
+                            "materials": 0,
+                            "ore": 2,
+                            "water": 0
+                        },
+                        "output": {
+                            "food": 0,
+                            "fuel": 10,
+                            "materials": 0,
+                            "ore": 0,
+                            "water": 0
+                        },
+                        "morale_modifier": 0
+                    },
+                    {
+                        "name": "mode two",
+                        "input": {
+                            "food": 0,
+                            "fuel": 0,
+                            "materials": 0,
+                            "ore": 3,
+                            "water": 0
+                        },
+                        "output": {
+                            "food": 0,
+                            "fuel": 12,
+                            "materials": 0,
+                            "ore": 0,
+                            "water": 0
+                        },
+                        "morale_modifier": -1
+                    }
+                ],
+                "units_used_this_turn": []
+            },
+            "YY12": {
+                "name": "Hull Plating",
+                "description": "",
+                "usable": false,
+                "reusable": false,
+                "startofturn": false,
                 "exhausted": false,
-                "affiliation_restricted": true,
-                "description": "The cool thing does"
-            }
-        },
-        "units": {
-            "YY7X": {
-                "name": "Dudes",
                 "damaged": false,
-                "exhausted": false
+                "damaged_description": "",
+                "alert_gm_on_use": false,
+                "alert_gm_on_damage": false,
+                "riot": false,
+                "input": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "",
+                    "crew_amount": 0
+                },
+                "output": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 0,
+                    "ore": 0,
+                    "water": 0
+                },
+                "repair_cost": {
+                    "food": 0,
+                    "fuel": 0,
+                    "materials": 1,
+                    "ore": 0,
+                    "water": 0,
+                    "crew_keyword": "engineer",
+                    "crew_amount": 1
+                },
+                "modes": [],
+                "units_used_this_turn": []
             }
         },
         "shuttles": {
-            "YY0X": {
-                "name": "Shuttle",
+            "YY01": {
+                "name": "Shuttle Name",
                 "intercepted": false,
                 "clearance": false,
+                "launching": false,
                 "resources": {
                     "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
                     "water": 0
-                }
+                },
+                "units": {}
+            }
+        },
+        "units": {
+            "YY70": {
+                "name": "Work Team",
+                "affiliation": "YY00",
+                "damaged": false,
+                "exhausted": false
+            }
+        },
+        "action_cards": {
+            "YY40": {
+                "name": "Card Name",
+                "affiliation": "YY00",
+                "affiliation_restricted": true,
+                "retained": false,
+                "once_per_turn": false,
+                "exhausted": false,
+                "description": "What the card does."
             }
         }
     }

@@ -262,22 +262,22 @@
             },
             "0215": {
                 "name": "Luxury Zone",
-                "description": "Spend 1 water and 1 food to add +3 to this turn's morale roll (call control).",
+                "description": "Spend 1 water and 1 food to add +3 to this turn's morale roll.",
                 "usable": true,
                 "reusable": false,
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
                 "damaged_description": "-1 to morale rolls.",
-                "alert_gm_on_use": true,
+                "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
                 "riot": false,
                 "input": {
-                    "food": 1,
+                    "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
-                    "water": 1,
+                    "water": 0,
                     "crew_keyword": "team",
                     "crew_amount": 2
                 },
@@ -297,27 +297,46 @@
                     "crew_keyword": "engineer",
                     "crew_amount": 2
                 },
-                "modes": [],
+                "modes": [
+                    {
+                        "name": "luxury",
+                        "input": {
+                            "food": 1,
+                            "fuel": 0,
+                            "materials": 0,
+                            "ore": 0,
+                            "water": 1
+                        },
+                        "output": {
+                            "food": 0,
+                            "fuel": 0,
+                            "materials": 0,
+                            "ore": 0,
+                            "water": 0
+                        },
+                        "morale_modifier": 3
+                    }
+                ],
                 "units_used_this_turn": []
             },
             "0216": {
                 "name": "Luxury Zone",
-                "description": "Spend 1 water and 1 food to add +3 to this turn's morale roll (call control).",
+                "description": "Spend 1 water and 1 food to add +3 to this turn's morale roll.",
                 "usable": true,
                 "reusable": false,
                 "startofturn": false,
                 "exhausted": false,
                 "damaged": false,
                 "damaged_description": "-1 to morale rolls.",
-                "alert_gm_on_use": true,
+                "alert_gm_on_use": false,
                 "alert_gm_on_damage": true,
                 "riot": false,
                 "input": {
-                    "food": 1,
+                    "food": 0,
                     "fuel": 0,
                     "materials": 0,
                     "ore": 0,
-                    "water": 1,
+                    "water": 0,
                     "crew_keyword": "team",
                     "crew_amount": 2
                 },
@@ -337,7 +356,26 @@
                     "crew_keyword": "engineer",
                     "crew_amount": 2
                 },
-                "modes": [],
+                "modes": [
+                    {
+                        "name": "luxury",
+                        "input": {
+                            "food": 1,
+                            "fuel": 0,
+                            "materials": 0,
+                            "ore": 0,
+                            "water": 1
+                        },
+                        "output": {
+                            "food": 0,
+                            "fuel": 0,
+                            "materials": 0,
+                            "ore": 0,
+                            "water": 0
+                        },
+                        "morale_modifier": 3
+                    }
+                ],
                 "units_used_this_turn": []
             },
             "0217": {

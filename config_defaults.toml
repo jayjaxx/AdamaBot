@@ -1,3 +1,12 @@
 [discord]
 TOKEN=""
 PREFIX="."
+# Server IDs to sync slash commands to instantly while developing. Leave empty to sync globally.
+DEV_GUILD_IDS=[]
+
+[roles]
+CONTROL="Control"
+GAME_STARTER="Game Starter"
+
+[database]
+DB_PATH="src/adama/db/adama.sqlite"

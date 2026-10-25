@@ -1,25 +1,21 @@
 import sqlite3
 
-from adama.config import config
-from adama.constants import DEBUG_MODE, _DATABASE_SCHEMA_LOCATION
+from adama.constants import _DATABASE_SCHEMA_LOCATION
 
-_conn = None
+_conn: sqlite3.Connection | None = None
 
 
-def get_connection(*, debug: bool = False) -> sqlite3.Connection:
-	global _conn
-	if _conn is not None: 
-		return _conn
-	
-	if debug:
-		_conn = sqlite3.connect(":memory:")
-	else:
-		_conn = sqlite3.connect(config.database.DB_PATH)
-
+def connect(path: str) -> sqlite3.Connection:
+	"""Opens a new connection and makes sure the schema exists. Use ":memory:" for tests."""
+	conn = sqlite3.connect(path)
 	with open(_DATABASE_SCHEMA_LOCATION) as f:
-		schema = f.read()
-		_conn.executescript(schema)
+		conn.executescript(f.read())
+	return conn
 
+
+def get_connection(path: str = ":memory:") -> sqlite3.Connection:
+	"""The bot's shared connection, opened on first use."""
+	global _conn
+	if _conn is None:
+		_conn = connect(path)
 	return _conn
-
-_conn = get_connection(debug=DEBUG_MODE)

@@ -3,15 +3,15 @@ import logging
 from pathlib import Path
 
 LOGS_DIR = Path("logs")
-LOGS_DIR.mkdir(exist_ok=True)
 
 LOGGING_LEVEL = logging.INFO
-LOGGING_FORMAT = ""
-LOGGING_DATEFMT = "%Y/%M/%S %H:%m:%s"
+LOGGING_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+LOGGING_DATEFMT = "%Y/%m/%d %H:%M:%S"
 
 
 def setup_logging():
-	now = datetime.datetime.now(datetime.UTC).strftime("%Y%M%S_%H%m%s")
+	LOGS_DIR.mkdir(exist_ok=True)
+	now = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
 	filename = LOGS_DIR / f"adama_{now}.log"
 
 	logging.basicConfig(

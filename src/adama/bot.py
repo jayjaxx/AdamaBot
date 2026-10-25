@@ -1,30 +1,122 @@
 import logging
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
+from adama import channels as ch
+from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
+from adama.perms import UserError
+from adama.status import split_message
 
 logger = logging.getLogger()
 
+# Commands that still work in the otherwise blind #starting-games.
+STARTING_GAMES_COMMANDS = {"startinitialization"}
+
+
+def is_blind(interaction: discord.Interaction) -> bool:
+	"""Whether the bot ignores commands in this channel: some text channels and every VC."""
+	channel = interaction.channel
+	if isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+		return True
+	name = getattr(channel, "name", None)
+	if name not in ch.BLIND_TEXT_CHANNELS:
+		return False
+	command = interaction.command.name if interaction.command else None
+	return not (name == "starting-games" and command in STARTING_GAMES_COMMANDS)
+
+
+async def reply(
+	interaction: discord.Interaction, text: str, *, ephemeral: bool = False
+) -> None:
+	"""Replies with text of any length, without pinging anyone."""
+	no_mentions = discord.AllowedMentions.none()
+	for chunk in split_message(text):
+		if interaction.response.is_done():
+			await interaction.followup.send(
+				chunk, ephemeral=ephemeral, allowed_mentions=no_mentions
+			)
+		else:
+			await interaction.response.send_message(
+				chunk, ephemeral=ephemeral, allowed_mentions=no_mentions
+			)
+
+
+class AdamaTree(app_commands.CommandTree):
+	async def interaction_check(self, interaction: discord.Interaction) -> bool:
+		if interaction.guild is None:
+			await reply(
+				interaction, "ADAMA commands only work in a server.", ephemeral=True
+			)
+			return False
+		if is_blind(interaction):
+			await reply(
+				interaction,
+				"ADAMA doesn't take commands in this channel.",
+				ephemeral=True,
+			)
+			return False
+		return True
+
+	async def on_error(
+		self, interaction: discord.Interaction, error: app_commands.AppCommandError
+	):
+		if isinstance(error, UserError):
+			message = str(error)
+		elif isinstance(error, app_commands.CheckFailure):
+			message = str(error) or "You can't use this command here."
+		else:
+			name = interaction.command.name if interaction.command else "?"
+			logger.exception("Error in /%s", name, exc_info=error)
+			message = (
+				"Something went wrong running that command. The error has been logged."
+			)
+		try:
+			await reply(interaction, message, ephemeral=True)
+		except discord.HTTPException:
+			logger.exception("Could not report an error to the user")
+
 
 class AdamaBot(commands.Bot):
-	def __init__(self, command_prefix, intents=discord.Intents.default(), container=Container()):
-		super().__init__(command_prefix=command_prefix, intents=intents)
+	def __init__(
+		self, config: GlobalConfig, intents=discord.Intents.default(), container=None
+	):
+		super().__init__(
+			command_prefix=config.discord.PREFIX, intents=intents, tree_cls=AdamaTree
+		)
 
+		self.config = config
 		self.epoch = discord.utils.utcnow()
-		self.container = container
+		self.container = container if container is not None else Container()
 
 	async def setup_hook(self):
-		self.before_invoke(self.before_command)
-		self.before_invoke(self.after_command)
-
 		for ext in self.get_all_extensions():
 			await self.load_extension(ext)
 
+		for command in self.tree.get_commands():
+			command.allowed_contexts = app_commands.AppCommandContext(guild=True)
+
+		if self.config.discord.DEV_GUILD_IDS:
+			for guild_id in self.config.discord.DEV_GUILD_IDS:
+				guild = discord.Object(id=guild_id)
+				self.tree.copy_global_to(guild=guild)
+				synced = await self.tree.sync(guild=guild)
+				logger.info("Synced %d commands to guild %s", len(synced), guild_id)
+		else:
+			synced = await self.tree.sync()
+			logger.info("Synced %d commands globally", len(synced))
+
 	async def on_ready(self):
 		logger.info(f"Logged in as: {self.user}")
+
+	async def on_app_command_completion(
+		self, interaction: discord.Interaction, command
+	):
+		time_taken = discord.utils.utcnow() - interaction.created_at
+		logger.info(f"{interaction.user.name} ran /{command.name} in {time_taken}")
 
 	async def close(self):
 		services = self.container.services
@@ -34,46 +126,7 @@ class AdamaBot(commands.Bot):
 			service.close()
 
 		logger.info("Closing down the bot...")
-
-	async def before_command(self, ctx: commands.Context):
-		assert ctx.command is not None
-
-		try:
-			await ctx.message.add_reaction("👍")
-		except discord.HTTPException:
-			pass
-
-		if ctx.command:
-			cmd_log = f"{ctx.author.name} invoked {ctx.command.name}"
-			logger.info(cmd_log)
-
-	async def after_command(self, ctx: commands.Context):
-		assert ctx.command is not None
-		now = discord.utils.utcnow()
-
-		if not ctx.command:
-			return
-
-		time_taken = now - ctx.message.created_at
-		if time_taken.total_seconds() < 0:
-			time_taken = 0
-
-		cmd_log = f"{ctx.command.name} took {time_taken}s"
-		logger.info(cmd_log)
-
-	async def on_command_error(self, ctx: commands.Context, exc):
-		if isinstance(exc, commands.CommandNotFound):
-			return
-
-		assert ctx.guild is not None
-		assert ctx.command is not None
-		assert self.user is not None
-
-		try:
-			await ctx.message.remove_reaction("👍", self.user)
-			await ctx.message.add_reaction("❌")
-		except discord.HTTPException:
-			pass
+		await super().close()
 
 	@staticmethod
 	def get_all_extensions():

@@ -31,7 +31,7 @@ One file per ship. Each file is a single object keyed by the ship's ID:
 | dione.json | 0200 | Home of the Council Chamber. Its Luxury Zones give +3 morale. |
 | icebreaker.json | 0300 | Mining Facilities (multi-mode). |
 | quellon.json | 0400 | |
-| refinery124.json | 0500 | Fuel Refineries (multi-mode, with morale penalties). Has no hangar. |
+| refinery124.json | 0500 | Fuel Refineries (multi-mode, with morale penalties). Has no Hangar Bay station (it still has a hangar channel). |
 | lucas.json | 0600 | Six H-1 Collector 3.0s. A damaged Fuel Storage stops it jumping. |
 | shepherd.json | 0700 | Six Food Synthesiser 3.0s. |
 | endeavour.json | 0800 | Small ship. Its Laboratories make research points; control tracks them. |
@@ -41,7 +41,7 @@ One file per ship. Each file is a single object keyed by the ship's ID:
 
 Every ship starts at coordinates `12903` with morale 10 and Normal rations. Its starting resources, units and shuttles come from the organiser's *starting units and resources* sheet.
 
-The setup script is a `.txt` file of commands that `/startinitialization` runs line by line. It doesn't exist yet. These JSON files are the data it must reproduce, or the bot can load them directly. That choice is open.
+The bot loads these files directly: attach them to `/startinitialization` or `/loadship` (up to 10 per message). Every file is validated first (see `src/adama/shipfiles.py`), and nothing is loaded if any file has a problem. To fix a file during initialization, `/unloadship` the ship and `/loadship` the corrected file. `jsontemplates.json` in the repo root is a blank ship in this format, to start new ships from.
 
 ## JSON shape
 
@@ -152,5 +152,5 @@ These are all deliberate decisions:
 
 1. Read the Command List parent tab, especially its **conventions** section, then each subtab.
 2. Read the Containers tab and compare it against one of these JSON files.
-3. Decide how the game state is loaded: from these JSON files directly, or via a generated setup script of /conjure… commands.
+3. The game state is loaded from these JSON files directly (decided; the setup-script idea was dropped).
 4. Ask the game organiser before guessing at any rule that isn't written down. They prefer more questions to fewer.
