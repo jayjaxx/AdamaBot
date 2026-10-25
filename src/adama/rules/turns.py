@@ -7,8 +7,8 @@ from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import RATION_LEVELS, Ship
 from adama.rules import BRIDGE, BROADCAST, CONTROL, PDA, GameError, Notice
-from adama.rules.players import start_of_turn_reminder
-from adama.rules.stations import AEGIS, SICKBAY, random_riot
+from adama.rules.players import healing_ship, start_of_turn_reminder
+from adama.rules.stations import AEGIS, random_riot
 
 RATION_MODIFIERS = {
 	"luxurious": 4,
@@ -221,6 +221,7 @@ def end_turn(galaxy: Galaxy) -> EndTurn:
 			f"**Turn {galaxy.turn_number} has ended.** Ships with a passive income or loss should alert control.",
 		)
 	)
+	galaxy.late_activations.clear()
 	for ship in galaxy.ships.values():
 		for station in ship.stations.values():
 			station.exhausted = False
@@ -240,14 +241,8 @@ def end_turn(galaxy: Galaxy) -> EndTurn:
 
 	healed = []
 	for player in galaxy.players.values():
-		aboard = galaxy.ships.get(player.location)
-		if (
-			player.wounded
-			and aboard is not None
-			and any(
-				s.name == SICKBAY and not s.damaged for s in aboard.stations.values()
-			)
-		):
+		aboard = healing_ship(galaxy, player) if player.wounded else None
+		if aboard is not None:
 			player.wounded = False
 			healed.append(player)
 			notices.append(

@@ -19,7 +19,6 @@ from adama.cogs._shared import (
 	ship_named,
 )
 from adama.models.galaxy import Galaxy, Jump, Launch
-from adama.models.player import Player
 from adama.models.ship import DISTANCES, Ship
 from adama.perms import UserError, control_only, is_gm
 from adama.rules import Notice
@@ -344,14 +343,8 @@ class TravelCommands(commands.Cog):
 				return
 			self.galaxies.save(galaxy)
 			await ops.post_notices(guild, galaxy, moved.notices)
-			await self._sync(guild, galaxy, moved.returned)
+			await ops.sync_players(guild, galaxy, moved.resync)
 			await ops.update_fleet_status(guild, galaxy)
-
-	async def _sync(
-		self, guild: discord.Guild, galaxy: Galaxy, players: list[Player]
-	) -> None:
-		for player in players:
-			await ops.sync_player(guild, galaxy, player)
 
 	@app_commands.command(
 		name="abort", extras=WHERE_BRIDGE, description="Stop your ship's jump countdown"
@@ -447,7 +440,7 @@ class TravelCommands(commands.Cog):
 				f"The {ship.name} is now at {ship.coordinates}.",
 				fleet=True,
 			)
-			await self._sync(guild, galaxy, moved.returned)
+			await ops.sync_players(guild, galaxy, moved.resync)
 
 	@app_commands.command(
 		name="setjumpdistance",

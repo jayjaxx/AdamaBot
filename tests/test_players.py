@@ -149,7 +149,10 @@ def test_only_first_responders_enter_combat_during_lockdown():
 		rules.travel(galaxy, crew, "combat")
 	rules.travel(galaxy, responder, "combat")
 	assert responder.location == "combat" and responder.combat_origin_ship == "0100"
-	# From combat they may go to any ship at those coordinates, despite the lockdown.
+	# Nobody leaves combat while the lockdown lasts.
+	with pytest.raises(GameError, match="can't leave until it ends"):
+		rules.travel(galaxy, responder, "Salvador")
+	galaxy.coordinates["12903"].locked_down = False
 	rules.travel(galaxy, responder, "Salvador")
 	assert responder.location == "1000" and responder.combat_origin_ship is None
 
@@ -267,7 +270,10 @@ def test_combat_channels_per_coordinates():
 	coords.combat_text_channel_id, coords.combat_voice_channel_id = 9001, 9002
 	assert 9001 in managed_channels(galaxy)
 	assert 9001 not in player_access(galaxy, crew)
+	assert 9002 not in player_access(galaxy, responder)  # until they travel to combat
+	coords.commanding_ship = "0100"  # ...unless aboard the commanding ship
 	assert player_access(galaxy, responder)[9002] == VOICE
+	assert 9002 not in player_access(galaxy, crew)
 	assert player_access(galaxy, observer)[9001] == READ_ONLY
 	assert player_access(galaxy, observer)[9002] == LISTEN
 	rules.travel(galaxy, responder, "combat")

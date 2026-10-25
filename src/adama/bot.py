@@ -9,6 +9,7 @@ from adama import channels as ch
 from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
+from adama.models.galaxy import STATE_ENDED
 from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.rules import GameError
 from adama.status import split_message
@@ -20,6 +21,8 @@ STARTING_GAMES_COMMANDS = {"startinitialization", "gm", "shutdown"}
 # The only commands brigged and dead players can use.
 BRIGGED_COMMANDS = {"status", "roll", "control", "help"}
 DEAD_COMMANDS = {"control", "help"}
+# After /endgame, for everyone (control included).
+ENDED_COMMANDS = {"status", "control"} | STARTING_GAMES_COMMANDS
 
 
 def restricted_reason(dead: bool, brigged: bool, command: str | None) -> str | None:
@@ -88,10 +91,20 @@ class AdamaTree(app_commands.CommandTree):
 			await refuse(interaction, "ADAMA doesn't take commands in this channel.")
 			return False
 		bot = interaction.client
-		if isinstance(bot, AdamaBot) and not is_gm(interaction.user, bot.config.roles):
-			galaxy = bot.container.services.galaxy.get(interaction.guild.id)
+		if not isinstance(bot, AdamaBot):
+			return True
+		galaxy = bot.container.services.galaxy.get(interaction.guild.id)
+		command = interaction.command.name if interaction.command else None
+		if galaxy.state == STATE_ENDED:
+			if command in ENDED_COMMANDS:
+				return True
+			await refuse(
+				interaction,
+				"The game is over: only /status and /control work until a new game is set up.",
+			)
+			return False
+		if not is_gm(interaction.user, bot.config.roles):
 			player = galaxy.player_by_user(interaction.user.id)
-			command = interaction.command.name if interaction.command else None
 			if player is not None:
 				reason = restricted_reason(player.dead, player.brigged, command)
 				if reason is not None:

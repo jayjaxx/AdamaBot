@@ -48,13 +48,16 @@ WHERE_HANGAR = {"where": "hangar"}
 WHERE_HANGAR_CREW = {"where": "hangar, crew only"}
 WHERE_BRIDGE = {"where": "bridge, crew only"}
 WHERE_SHIP_CREW = {"where": "hangar or bridge, crew only"}
+WHERE_HANGAR_UNIT_CREW = {"where": "hangar, crew of the unit's ship"}
 
 # Commands only an office holder can use; /help lists each office under its own header
 # and only to players who hold it.
 OFFICES: dict[str, tuple[str, Callable[[Player], bool]]] = {
 	"president": ("President", lambda p: p.president),
+	"first_responder": ("First Responder", lambda p: p.first_responder),
 }
 PRESIDENT_ONLY = {"office": "president"}
+FIRST_RESPONDER_ONLY = {"office": "first_responder"}
 
 
 def ship_here(

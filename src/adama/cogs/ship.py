@@ -363,8 +363,16 @@ class ShipCommands(commands.Cog):
 			async with self.galaxies.lock(i.guild.id):
 				galaxy = self.galaxy(i)
 				ship = ship_here(galaxy, i, ch.SHIP_BRIDGE, gm=self.gm(i), crew=True)
+				coords = galaxy.coordinates.get(ship.coordinates)
 				notices = st_rules.activate(
-					ship, station, mode, unit_ids, i.user.mention
+					ship,
+					station,
+					mode,
+					unit_ids,
+					i.user.mention,
+					late=galaxy.late_activations
+					if coords is not None and coords.locked_down
+					else None,
 				)
 				await self.finish(i, galaxy, notices, "Activated.")
 

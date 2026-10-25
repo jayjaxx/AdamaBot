@@ -17,17 +17,41 @@ from adama.rules import shuttles as sh
 # Health
 
 
-def test_wound_lists_sickbays_and_blocks_travel():
+def test_wound_blocks_travel_and_calls_control_without_a_sickbay():
 	g = galaxy()
-	p = aboard(g, "0100")
+	p = aboard(g, "0100")  # the Aegis has a Sickbay
 	notices = chars.wound(g, p)
-	assert "Aegis, Dione" in notices[0].text and "Salvador" in notices[0].text
+	assert [n.target for n in notices] == [PDA]
+	assert "healed at the end of the turn" in notices[0].text
 	with pytest.raises(GameError, match="wounded"):
 		pl.travel(g, p, "Dione")
 	with pytest.raises(GameError, match="already wounded"):
 		chars.wound(g, p)
 	chars.heal(p)
 	assert not p.wounded
+
+	far = aboard(g, "0600", "0002")  # the Lucas has none
+	g.ships["0100"].stations[
+		next(s.id for s in g.ships["0100"].stations.values() if s.name == "Sickbay")
+	].riot = True  # a riot doesn't stop a Sickbay
+	notices = chars.wound(g, far)
+	pda = next(n for n in notices if n.target == PDA)
+	call = next(n for n in notices if n.target == CONTROL)
+	assert "Control has been alerted" in pda.text and "/control" in pda.text
+	assert call.claim and "<@2>" in call.text and "Aegis, Dione" in call.text
+
+
+def test_endturn_heals_in_the_brig_ship_sickbay():
+	from adama.rules import turns
+
+	g = galaxy()
+	prisoner = aboard(g, "0200")
+	chars.brig(g, prisoner)  # the brig is on the Aegis, which has a Sickbay
+	notices = chars.wound(g, prisoner)
+	assert not any(n.target == CONTROL for n in notices)
+	turns.end_turn(g)
+	turns.end_turn(g)  # the first is refused: no morale rolls
+	assert not prisoner.wounded
 
 
 def test_kill_and_resurrect_restore_everything():
@@ -216,3 +240,33 @@ def test_elections():
 	assert not p.president and not p.councillor and len(change.roles) == 2
 	with pytest.raises(GameError, match="doesn't hold"):
 		council.depose(p, council.PRESIDENT)
+
+
+def test_wolves_are_secret():
+	from adama.models.galaxy import STATE_INITIALIZING
+	from adama.status import pda_status
+
+	g = galaxy()
+	p = aboard(g, "0100")
+	assert "wolf" not in pda_status(g, p)
+	chars.set_wolf(p, True)
+	assert p.wolf and "You are a wolf" in pda_status(g, p)
+	with pytest.raises(GameError, match="already a wolf"):
+		chars.set_wolf(p, True)
+	assert "<@1>: Aegis" in chars.wolves_list(g)
+	chars.set_wolf(p, False)
+	assert chars.wolves_list(g).endswith("none")
+
+	g.state = STATE_INITIALIZING
+	with pytest.raises(GameError, match="pregame lobby"):
+		chars.set_lobby_wolf(g, 42, True)
+	g.discord.admitted.append(42)
+	chars.set_lobby_wolf(g, 42, True)
+	assert g.lobby_wolves == {42} and "(pregame lobby)" in chars.wolves_list(g)
+	from adama.config import RolesConfig
+
+	g.players.clear()
+	players, _, _ = pl.start_game(
+		g, [pl.LobbyMember(42, frozenset({"Aegis Crew"}))], RolesConfig()
+	)
+	assert players[0].wolf and not g.lobby_wolves

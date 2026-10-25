@@ -12,6 +12,7 @@ from adama.models.player import Player
 from adama.perms import UserError, control_only
 from adama.rules import Notice
 from adama.rules import characters as char_rules
+from adama.rules import combat as combat_rules
 from adama.rules import council as council_rules
 
 logger = logging.getLogger()
@@ -328,11 +329,11 @@ class CharacterCommands(commands.Cog):
 	# Elections (control)
 
 	def office_role(self, office: str) -> str:
-		return (
-			self.roles.PRESIDENT
-			if office == council_rules.PRESIDENT
-			else self.roles.COUNCILLOR
-		)
+		return {
+			council_rules.PRESIDENT: self.roles.PRESIDENT,
+			council_rules.COUNCILLOR: self.roles.COUNCILLOR,
+			combat_rules.FIRST_RESPONDER: self.roles.FIRST_RESPONDER,
+		}[office]
 
 	async def _lobby_offices(
 		self,
@@ -445,6 +446,92 @@ class CharacterCommands(commands.Cog):
 				return
 			change = council_rules.depose(player_of(galaxy, player), office)
 			await self._apply(interaction, galaxy, change, done)
+
+	async def _first_responder(
+		self, interaction: discord.Interaction, member: discord.Member, given: bool
+	) -> None:
+		guild = interaction.guild
+		assert guild is not None
+		async with self.galaxies.lock(guild.id):
+			galaxy = self.galaxy(interaction)
+			done = (
+				f"{member.mention} is now a first responder."
+				if given
+				else f"{member.mention} is no longer a first responder."
+			)
+			if await self._lobby_offices(
+				interaction, galaxy, member, [combat_rules.FIRST_RESPONDER], given, done
+			):
+				return
+			player = player_of(galaxy, member)
+			notices = combat_rules.set_first_responder(player, given)
+			await interaction.response.defer(ephemeral=True)
+			await ops.set_role(guild, player, self.roles.FIRST_RESPONDER, given)
+			await self.finish(interaction, galaxy, notices, done, sync=[player])
+
+	@app_commands.command(
+		name="setfirstresponder",
+		description="Make a player a first responder (summoned to the battlemap in a lockdown)",
+		extras=GM,
+	)
+	@control_only()
+	async def setfirstresponder(
+		self, interaction: discord.Interaction, player: discord.Member
+	):
+		await self._first_responder(interaction, player, True)
+
+	@app_commands.command(
+		name="unsetfirstresponder",
+		description="Stop a player being a first responder",
+		extras=GM,
+	)
+	@control_only()
+	async def unsetfirstresponder(
+		self, interaction: discord.Interaction, player: discord.Member
+	):
+		await self._first_responder(interaction, player, False)
+
+	# Wolves (control): silent, nobody is told.
+
+	async def _wolf(
+		self, interaction: discord.Interaction, member: discord.Member, wolf: bool
+	) -> None:
+		assert interaction.guild is not None
+		async with self.galaxies.lock(interaction.guild.id):
+			galaxy = self.galaxy(interaction)
+			if galaxy.started:
+				text = char_rules.set_wolf(player_of(galaxy, member), wolf)
+			elif galaxy.state == STATE_INITIALIZING:
+				text = char_rules.set_lobby_wolf(galaxy, member.id, wolf)
+			else:
+				raise UserError("There is no game being set up or in progress.")
+			self.galaxies.save(galaxy)
+		await reply(interaction, text, ephemeral=True)
+
+	@app_commands.command(
+		name="setwolf", description="Secretly make a player a wolf", extras=GM
+	)
+	@control_only()
+	async def setwolf(self, interaction: discord.Interaction, player: discord.Member):
+		await self._wolf(interaction, player, True)
+
+	@app_commands.command(
+		name="unsetwolf", description="Secretly stop a player being a wolf", extras=GM
+	)
+	@control_only()
+	async def unsetwolf(self, interaction: discord.Interaction, player: discord.Member):
+		await self._wolf(interaction, player, False)
+
+	@app_commands.command(
+		name="wolves", description="List the wolves (only you see it)", extras=GM
+	)
+	@control_only()
+	async def wolves(self, interaction: discord.Interaction):
+		await reply(
+			interaction,
+			char_rules.wolves_list(self.galaxy(interaction)),
+			ephemeral=True,
+		)
 
 
 async def setup(bot: AdamaBot):

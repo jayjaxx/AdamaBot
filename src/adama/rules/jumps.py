@@ -9,6 +9,7 @@ from adama.rules import (
 	BRIDGE,
 	CONTROL,
 	HANGAR,
+	PDA,
 	GameError,
 	Notice,
 	isolation,
@@ -33,9 +34,9 @@ class JumpRefused(GameError):
 
 @dataclass
 class ShipMoved:
-	notices: list[Notice]
-	# Players brought back from combat, whose Discord access must be updated.
-	returned: list[Player] = field(default_factory=list)
+	notices: list[Notice] = field(default_factory=list)
+	# Players whose Discord access must be updated (first responders left in combat).
+	resync: list[Player] = field(default_factory=list)
 
 
 def check_coordinates(coordinates: str) -> str:
@@ -136,15 +137,79 @@ def abort_jump(galaxy: Galaxy, ship: Ship) -> list[Notice]:
 	]
 
 
+def _left_lockdown_alert(
+	galaxy: Galaxy, ship: Ship, origin: str, destination: str, left: list[Player]
+) -> Notice:
+	"""Nobody is pulled out of the combat: control decides what happens to the first
+	responders who came from the ship or are its crew. `left`: the commanding ship's
+	first responders, left behind in combat."""
+	in_combat = [
+		p
+		for p in galaxy.players.values()
+		if p.location == LOCATION_COMBAT and p.combat_origin_ship == ship.id
+	]
+	crew = [
+		p
+		for p in galaxy.players.values()
+		if p.first_responder and not p.dead and ship.id in p.crew_affiliations
+	]
+
+	def names(players: list[Player]) -> str:
+		return ", ".join(f"<@{p.discord_user_id}>" for p in players) or "none"
+
+	text = (
+		f"The {ship.name} jumped from {origin} to {destination} during the lockdown "
+		f"at {origin}. First responders in combat from the {ship.name}: "
+		f"{names(in_combat)}. First responders who are its crew: {names(crew)}."
+	)
+	coords = galaxy.coordinates[origin]
+	if coords.commanding_ship == ship.id:
+		text += (
+			f" **The {ship.name} was commanding the lockdown:** its first responders "
+			f"aboard were left behind in combat ({names(left)}). Use /transfercommand "
+			"to give command to another ship."
+		)
+	return Notice(CONTROL, text, claim=True)
+
+
+def _leave_commanders_behind(galaxy: Galaxy, ship: Ship, origin: str) -> list[Player]:
+	"""The commanding ship's first-responder crew aboard stay in the combat it left."""
+	left = [
+		p
+		for p in galaxy.players.values()
+		if p.first_responder
+		and not p.dead
+		and p.location == ship.id
+		and ship.id in p.crew_affiliations
+	]
+	for player in left:
+		player.location = LOCATION_COMBAT
+		player.combat_origin_ship = ship.id
+		player.combat_coordinates = origin
+		player.clearances.clear()
+	return left
+
+
 def move_ship(galaxy: Galaxy, ship: Ship, destination: str, reason: str) -> ShipMoved:
 	"""Moves a ship with everything aboard it. Shared by jumps and /teleportship."""
 	moved = ShipMoved(cancel_launches_for_ship(galaxy, ship, reason))
-	for player in galaxy.players.values():
-		if player.location == LOCATION_COMBAT and player.combat_origin_ship == ship.id:
-			player.location = ship.id
-			player.combat_origin_ship = None
-			moved.returned.append(player)
 	origin = ship.coordinates
+	leaving = galaxy.coordinates.get(origin)
+	if leaving is not None and leaving.locked_down:
+		if leaving.commanding_ship == ship.id:
+			moved.resync = _leave_commanders_behind(galaxy, ship, origin)
+			moved.notices += [
+				Notice(
+					PDA,
+					f"The {ship.name} jumped away from the lockdown at {origin}: you "
+					"stayed behind in the combat.",
+					p.id,
+				)
+				for p in moved.resync
+			]
+		moved.notices.append(
+			_left_lockdown_alert(galaxy, ship, origin, destination, moved.resync)
+		)
 	galaxy.get_or_create_coordinates(destination)
 	ship.coordinates = destination
 	for other in galaxy.ships_at(origin):

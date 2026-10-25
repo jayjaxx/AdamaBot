@@ -176,7 +176,7 @@ def test_jump_moves_the_ship_and_everything_aboard():
 	assert aegis.coordinates == "55555" and not aegis.jumping
 	assert aegis.resources.fuel == 1  # 8 - 7 for a short jump
 	assert aegis.next_coordinates == "" and "55555" in g.coordinates
-	assert fighter.location == "0100" and moved.returned == [fighter]
+	assert fighter.location == LOCATION_COMBAT  # nobody is pulled out of combat
 	assert crew.location == "0100" and "0101" in aegis.shuttles
 	left = {n.id for n in moved.notices if "jumped away" in n.text}
 	assert "0200" in left and "0100" not in left

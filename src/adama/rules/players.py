@@ -8,6 +8,7 @@ from adama.config import RolesConfig
 from adama.models.galaxy import STATE_IN_PROGRESS, STATE_INITIALIZING, Galaxy
 from adama.models.player import LOCATION_BRIG, LOCATION_COMBAT, Player
 from adama.models.ship import Ship
+from adama.rules.stations import SICKBAY
 from adama.rules import (
 	BRIDGE,
 	BROADCAST,
@@ -41,6 +42,30 @@ def current_ship(galaxy: Galaxy, player: Player) -> Ship | None:
 	else:
 		ship_id = player.location
 	return galaxy.ships.get(ship_id) if ship_id else None
+
+
+def has_sickbay(ship: Ship) -> bool:
+	"""An undamaged station named Sickbay (a riot doesn't stop it)."""
+	return any(s.name == SICKBAY and not s.damaged for s in ship.stations.values())
+
+
+def healing_ship(galaxy: Galaxy, player: Player) -> Ship | None:
+	"""The ship whose Sickbay heals the player at /endturn: the one they're aboard, or
+	the brig ship if they're in the brig. None in combat or with no location."""
+	if player.location == LOCATION_COMBAT:
+		return None
+	ship = current_ship(galaxy, player)
+	return ship if ship is not None and has_sickbay(ship) else None
+
+
+def combat_coordinates(galaxy: Galaxy, player: Player) -> str | None:
+	"""Where a player in combat is fighting (None if they aren't in combat)."""
+	if player.location != LOCATION_COMBAT:
+		return None
+	if player.combat_coordinates:
+		return player.combat_coordinates
+	origin = galaxy.ships.get(player.combat_origin_ship or "")
+	return origin.coordinates if origin else None
 
 
 def start_of_turn_reminder(ship: Ship) -> Notice | None:
@@ -90,6 +115,7 @@ def start_game(
 			president=roles.PRESIDENT in member.role_names,
 			councillor=roles.COUNCILLOR in member.role_names,
 			first_responder=roles.FIRST_RESPONDER in member.role_names,
+			wolf=member.user_id in galaxy.lobby_wolves,
 		)
 		galaxy.players[player.id] = player
 		players.append(player)
@@ -103,6 +129,7 @@ def start_game(
 				)
 			)
 
+	galaxy.lobby_wolves.clear()
 	galaxy.state = STATE_IN_PROGRESS
 	galaxy.turn_number = 1
 	notices.append(Notice(BROADCAST, "**The game has started!** Turn 1 begins now."))
@@ -155,6 +182,7 @@ def remove_team(galaxy: Galaxy, player: Player, ship: Ship) -> list[Notice]:
 def _arrive(player: Player, ship: Ship, notices: list[Notice]) -> None:
 	player.location = ship.id
 	player.combat_origin_ship = None
+	player.combat_coordinates = None
 	player.clearances.clear()
 	notices.append(Notice(HANGAR, f"{mention(player)} has arrived.", ship.id))
 
@@ -162,6 +190,7 @@ def _arrive(player: Player, ship: Ship, notices: list[Notice]) -> None:
 def _enter_combat(player: Player, origin: Ship, notices: list[Notice]) -> None:
 	player.location = LOCATION_COMBAT
 	player.combat_origin_ship = origin.id
+	player.combat_coordinates = origin.coordinates
 	player.clearances.clear()
 	notices.append(
 		Notice(
@@ -182,7 +211,8 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 	origin = current_ship(galaxy, player)
 	if origin is None or player.location == LOCATION_BRIG:
 		raise GameError("You aren't aboard a ship.")
-	coords = galaxy.get_or_create_coordinates(origin.coordinates)
+	here = combat_coordinates(galaxy, player) or origin.coordinates
+	coords = galaxy.get_or_create_coordinates(here)
 	notices: list[Notice] = []
 
 	if destination.casefold() == LOCATION_COMBAT:
@@ -200,6 +230,11 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 		_enter_combat(player, origin, notices)
 		return notices
 
+	if in_combat and coords.locked_down:
+		raise GameError(
+			f"The combat at {here} is still in lockdown: you can't leave until it "
+			"ends. Ask control with /control if you need to."
+		)
 	dest = galaxy.ship_by_name(destination)
 	if dest is None:
 		raise GameError(f'There is no ship named "{destination}".')
@@ -207,11 +242,11 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 		raise GameError(f"You're already aboard the {dest.name}.")
 	if dest.destroyed:
 		raise GameError(f"The {dest.name} has been destroyed.")
-	if dest.coordinates != origin.coordinates:
+	if dest.coordinates != here:
 		raise GameError(f"The {dest.name} isn't at your coordinates.")
 	if dest.isolated:
 		raise GameError(sentence(isolation(dest.name)))
-	# A player in combat may travel to any ship at those coordinates.
+	# Leaving a combat whose lockdown ended (e.g. after a restart) needs no checks.
 	if not in_combat:
 		if origin.isolated:
 			raise GameError(sentence(isolation(origin.name)))

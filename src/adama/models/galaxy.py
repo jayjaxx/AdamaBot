@@ -11,6 +11,8 @@ from adama.models.unit import Unit
 STATE_IDLE = "idle"
 STATE_INITIALIZING = "initializing"
 STATE_IN_PROGRESS = "in progress"
+# After /endgame: the data is kept for /status until the next /startinitialization.
+STATE_ENDED = "ended"
 
 
 @dataclass
@@ -24,6 +26,9 @@ class Coordinates:
 	# Per-coordinates combat channels, open only during a lockdown.
 	combat_text_channel_id: int | None = None
 	combat_voice_channel_id: int | None = None
+	# The ship commanding a lockdown: its first responders aboard it see the combat
+	# channels without travelling to combat.
+	commanding_ship: str | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -31,6 +36,7 @@ class Coordinates:
 			"distance": self.distance,
 			"combat_text_channel_id": self.combat_text_channel_id,
 			"combat_voice_channel_id": self.combat_voice_channel_id,
+			"commanding_ship": self.commanding_ship,
 		}
 
 	@classmethod
@@ -117,6 +123,11 @@ class Galaxy:
 	end_turn_warned: bool = False
 	# Latest morale roll summary per ship ID, shown in #fleet-status.
 	morale_results: dict[str, str] = field(default_factory=dict)
+	# Start-of-turn stations (IDs) activated this turn while their coordinates were in
+	# lockdown: #fleet-status shows them with an hourglass. Cleared at /endturn.
+	late_activations: set[str] = field(default_factory=set)
+	# Discord users made wolves in the pregame lobby; /startgame sets their flag.
+	lobby_wolves: set[int] = field(default_factory=set)
 
 	coordinates: dict[str, Coordinates] = field(default_factory=dict)
 	ships: dict[str, Ship] = field(default_factory=dict)
@@ -244,6 +255,8 @@ class Galaxy:
 			"brig_ship": self.brig_ship,
 			"end_turn_warned": self.end_turn_warned,
 			"morale_results": dict(self.morale_results),
+			"late_activations": sorted(self.late_activations),
+			"lobby_wolves": sorted(self.lobby_wolves),
 			"coordinates": {
 				c: coords.to_dict() for c, coords in self.coordinates.items()
 			},
@@ -272,6 +285,8 @@ class Galaxy:
 			# .get: saved before these fields existed.
 			end_turn_warned=data.get("end_turn_warned", False),
 			morale_results=dict(data.get("morale_results", {})),
+			late_activations=set(data.get("late_activations", [])),
+			lobby_wolves=set(data.get("lobby_wolves", [])),
 			coordinates={
 				c: Coordinates.from_dict(c, coords)
 				for c, coords in data["coordinates"].items()

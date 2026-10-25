@@ -9,9 +9,10 @@ from adama import channels as ch
 from adama import discord_ops as ops
 from adama.constants import DEFAULT_SHIPS_DIR
 from adama.bot import AdamaBot, reply
-from adama.models.galaxy import STATE_IDLE, STATE_INITIALIZING, Galaxy
+from adama.models.galaxy import STATE_ENDED, STATE_IDLE, STATE_INITIALIZING, Galaxy
 from adama.models.ship import Ship
 from adama.perms import UserError, control_only, game_starter_only, is_gm
+from adama.rules.combat import end_lockdown
 from adama.rules.shuttles import drop_stale_countdowns
 from adama.rules.players import LobbyMember, start_game
 from adama.shipfiles import ShipFile, validate_ship_files
@@ -23,6 +24,10 @@ JOIN_EMOJI = "✅"
 # Discord allows at most 10 attachments per message.
 MAX_FILES = 10
 GM = {"gm": True}
+GAME_OVER = (
+	"**The game is over!** Thank you for playing. Every channel is now open to "
+	"everyone: gather in Fleet Announcements for the debrief."
+)
 
 Attachment = discord.Attachment | None
 
@@ -151,7 +156,7 @@ class GameCommands(commands.Cog):
 		]
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxies.get(guild.id)
-			if galaxy.state != STATE_IDLE:
+			if galaxy.state not in (STATE_IDLE, STATE_ENDED):
 				raise UserError(
 					"A game is already being initialized or in progress. Run /endgame first."
 				)
@@ -166,7 +171,7 @@ class GameCommands(commands.Cog):
 
 			await interaction.response.defer(ephemeral=True, thinking=True)
 			control = await ops.ensure_server(guild, galaxy, self.roles)
-			await ops.reset_server(guild, galaxy)
+			await ops.reset_server(guild, galaxy, self.roles)
 			assert isinstance(interaction.user, discord.Member)
 			await ops.reset_control(control, keep=interaction.user)
 
@@ -229,7 +234,7 @@ class GameCommands(commands.Cog):
 		]
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxies.get(guild.id)
-			if galaxy.state == STATE_IDLE:
+			if galaxy.state in (STATE_IDLE, STATE_ENDED):
 				raise UserError("No game is being initialized or in progress.")
 			files = await read_files(attachments)
 			ships, problems = validate_ship_files(files, galaxy)
@@ -397,21 +402,38 @@ class GameCommands(commands.Cog):
 		assert guild is not None
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxies.get(guild.id)
-			if galaxy.state == STATE_IDLE:
+			if galaxy.state in (STATE_IDLE, STATE_ENDED):
 				raise UserError("No game in progress.")
 			await interaction.response.defer(ephemeral=True)
 			await ops.delete_start_message(guild, galaxy)
 			galaxy.discord.queue.clear()
-			galaxy.state = STATE_IDLE
-			self.galaxies.save(galaxy)
-			broadcasts = ops.get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
-			if isinstance(broadcasts, discord.TextChannel):
-				await broadcasts.send(
-					"**The game is over!** Gather in Fleet Announcements for the debrief."
+			if not galaxy.started:
+				# Still being set up: there is nothing to open up or announce.
+				galaxy.state = STATE_IDLE
+				self.galaxies.save(galaxy)
+				await reply(
+					interaction,
+					"Game setup cancelled. /startinitialization can be run again.",
+					ephemeral=True,
 				)
+				return
+
+			deleted: list[int] = []
+			if any(c.locked_down for c in galaxy.coordinates.values()):
+				deleted = end_lockdown(galaxy, None).deleted_channels
+			galaxy.launches.clear()
+			galaxy.jumps.clear()
+			drop_stale_countdowns(galaxy)  # clears the launching and jumping flags
+			galaxy.state = STATE_ENDED
+			self.galaxies.save(galaxy)
+			await ops.delete_channels(guild, deleted)
+			await ops.open_to_everyone(guild, galaxy)
+			await ops.announce_everywhere(guild, galaxy, GAME_OVER)
+			await ops.refresh_fleet_status(guild, galaxy)
 		await reply(
 			interaction,
-			"The game has ended. /startinitialization can be run again.",
+			"The game has ended: every channel is open and only /status and /control "
+			"work. /startinitialization can be run again.",
 			ephemeral=True,
 		)
 

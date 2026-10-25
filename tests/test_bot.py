@@ -57,6 +57,10 @@ PLAYER_COMMANDS = {
 	"unseal",
 	"permit",
 	"gag",
+	"observer",
+	"removeobserver",
+	"loadunit",
+	"unloadunit",
 }
 GM_COMMANDS = {
 	"addresource",
@@ -103,6 +107,17 @@ GM_COMMANDS = {
 	"electcouncillor",
 	"depose",
 	"card",
+	"lockdown",
+	"endlockdown",
+	"transfercommand",
+	"setfirstresponder",
+	"unsetfirstresponder",
+	"setwolf",
+	"unsetwolf",
+	"wolves",
+	"unit",
+	"station",
+	"ship",
 }
 
 
@@ -170,6 +185,7 @@ def test_help_lists():
 	assert headers == [
 		"**ADAMA commands**",
 		"**President commands**",
+		"**First Responder commands**",
 		"**Control commands**",
 	]
 
@@ -180,7 +196,7 @@ def test_groups_are_control_only():
 	shuttle = bot.tree.get_command("shuttle")
 	assert isinstance(shuttle, discord.app_commands.Group)
 	assert {c.name for c in shuttle.commands} == {"conjure", "destroy", "teleport"}
-	for group in ("shuttle", "card"):
+	for group in ("shuttle", "card", "unit", "station", "ship"):
 		command = bot.tree.get_command(group)
 		assert isinstance(command, discord.app_commands.Group)
 		for sub in command.commands:
@@ -444,3 +460,10 @@ def test_only_starting_games_gets_out_of_game_permissions():
 	guild = SimpleNamespace(default_role="everyone")
 	assert _overwrites(guild, ch.SERVER_DEFAULT, "control") == {}
 	assert set(_overwrites(guild, ch.PUBLIC_READ, "control")) == {"everyone", "control"}
+
+
+def test_only_status_and_control_work_after_the_game_ends():
+	from adama.bot import ENDED_COMMANDS
+
+	assert {"status", "control", "startinitialization"} <= ENDED_COMMANDS
+	assert not {"travel", "endturn", "help", "lockdown"} & ENDED_COMMANDS

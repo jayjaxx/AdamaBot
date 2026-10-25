@@ -176,7 +176,8 @@ def _ship_name(galaxy: Galaxy, ship_id: str | None) -> str:
 
 def location_name(galaxy: Galaxy, player: Player) -> str:
 	if player.location == "combat":
-		return f"combat (from {_ship_name(galaxy, player.combat_origin_ship)})"
+		where = f" at {player.combat_coordinates}" if player.combat_coordinates else ""
+		return f"combat{where} (from {_ship_name(galaxy, player.combat_origin_ship)})"
 	if player.location == "brig":
 		return "the brig"
 	return _ship_name(galaxy, player.location or None)
@@ -218,6 +219,7 @@ def pda_status(galaxy: Galaxy, player: Player) -> str:
 		f"**Crew of:** {crews or 'none'}",
 		f"**Offices:** {', '.join(offices) or 'none'}",
 		f"**Clearances:** {clearances or 'none'}",
+		*(["**You are a wolf.** 🐺"] if player.wolf else []),
 		"**Action cards:**",
 		*(cards or ["none"]),
 	]
@@ -239,6 +241,13 @@ def activated_this_turn(station: Station) -> bool:
 	return station.exhausted or bool(station.units_used_this_turn)
 
 
+def start_of_turn_mark(galaxy: Galaxy, station: Station) -> str:
+	"""✅ activated, ⏳ activated late (during a lockdown), ❌ not yet."""
+	if station.id in galaxy.late_activations:
+		return "⏳"
+	return "✅" if activated_this_turn(station) else "❌"
+
+
 def fleet_status(galaxy: Galaxy) -> str:
 	"""The summary kept up to date in #fleet-status."""
 	lines = [f"# Fleet status — {galaxy.state}, turn {galaxy.turn_number}"]
@@ -258,6 +267,10 @@ def fleet_status(galaxy: Galaxy) -> str:
 		header = f"\n## {coordinates} ({coords.distance})"
 		if coords.locked_down:
 			header += " — LOCKDOWN"
+			if coords.commanding_ship in galaxy.ships:
+				header += (
+					f", commanded by the {galaxy.ships[coords.commanding_ship].name}"
+				)
 		lines.append(header)
 		for ship in ships:
 			flags = [
@@ -281,7 +294,7 @@ def fleet_status(galaxy: Galaxy) -> str:
 				lines.append(
 					"  start of turn: "
 					+ ", ".join(
-						f"`{s.id}` {s.name} {'✅' if activated_this_turn(s) else '❌'}"
+						f"`{s.id}` {s.name} {start_of_turn_mark(galaxy, s)}"
 						for s in start
 					)
 				)

@@ -18,7 +18,7 @@ from adama.config import RolesConfig
 from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import Ship
-from adama.rules import BRIDGE, BRIG, BROADCAST, CONTROL, HANGAR, PDA, Notice
+from adama.rules import BRIDGE, BRIG, BROADCAST, CONTROL, COUNCIL, HANGAR, PDA, Notice
 from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.status import fleet_status, split_message
 
@@ -61,22 +61,33 @@ def check_bot_permissions(guild: discord.Guild) -> None:
 def _overwrites(
 	guild: discord.Guild, visibility: str, control: discord.Role
 ) -> dict[discord.Role | discord.Member, discord.PermissionOverwrite]:
-	if visibility == ch.SERVER_DEFAULT:
+	everyone = _everyone_overwrite(visibility)
+	if everyone is None:
 		return {}
 	if visibility == ch.PUBLIC_READ:
 		return {
-			guild.default_role: discord.PermissionOverwrite(
-				view_channel=True,
-				send_messages=False,
-				add_reactions=False,
-				read_message_history=True,
-			),
+			guild.default_role: everyone,
 			control: discord.PermissionOverwrite(view_channel=True, send_messages=True),
 		}
 	return {
-		guild.default_role: discord.PermissionOverwrite(view_channel=False),
+		guild.default_role: everyone,
 		control: discord.PermissionOverwrite(view_channel=True),
 	}
+
+
+def _everyone_overwrite(visibility: str) -> discord.PermissionOverwrite | None:
+	"""What @everyone may do in a channel of this visibility (None: the bot sets
+	nothing)."""
+	if visibility == ch.SERVER_DEFAULT:
+		return None
+	if visibility == ch.PUBLIC_READ:
+		return discord.PermissionOverwrite(
+			view_channel=True,
+			send_messages=False,
+			add_reactions=False,
+			read_message_history=True,
+		)
+	return discord.PermissionOverwrite(view_channel=False)
 
 
 async def _create(
@@ -353,9 +364,12 @@ async def delete_untracked_leftovers(guild: discord.Guild, galaxy: Galaxy) -> li
 	return removed
 
 
-async def reset_server(guild: discord.Guild, galaxy: Galaxy) -> None:
-	"""Removes the previous game's ship channels, PDAs, combat channels, lobby message and
-	individual permissions, and empties the channels /startinitialization clears."""
+async def reset_server(
+	guild: discord.Guild, galaxy: Galaxy, roles: RolesConfig
+) -> None:
+	"""Removes the previous game's ship channels, PDAs, combat channels, lobby message,
+	individual permissions, crew roles and office roles, and empties the channels
+	/startinitialization clears."""
 	council, brig = galaxy.council_chambers_ship, galaxy.brig_ship
 	galaxy.council_chambers_ship = galaxy.brig_ship = None
 	await place_council_and_brig(guild, galaxy)
@@ -368,6 +382,16 @@ async def reset_server(guild: discord.Guild, galaxy: Galaxy) -> None:
 			for member in role.members:
 				await member.remove_roles(role, reason="ADAMA: new game")
 		await delete_ship_channels(guild, galaxy, ship_id, delete_role=False)
+	# Offices are read from their roles at /startgame, so last game's must go too.
+	for name in office_role_names(roles):
+		office = discord.utils.get(guild.roles, name=name)
+		if office is not None:
+			await asyncio.gather(
+				*(
+					m.remove_roles(office, reason="ADAMA: new game")
+					for m in office.members
+				)
+			)
 	leftovers = await delete_untracked_leftovers(guild, galaxy)
 	if leftovers:
 		logger.info(
@@ -397,8 +421,96 @@ async def reset_server(guild: discord.Guild, galaxy: Galaxy) -> None:
 		permanent = get_channel(guild, galaxy, spec.key)
 		if permanent is not None:
 			await strip_member_overwrites(permanent)
+			await _close_to_everyone(guild, permanent, spec.visibility)
 	galaxy.discord.fleet_status_message_ids.clear()
 	_fleet_status_shown.pop(guild.id, None)
+
+
+async def _close_to_everyone(
+	guild: discord.Guild, channel: GuildChannel, visibility: str
+) -> None:
+	"""Undoes /endgame opening the channel to @everyone."""
+	wanted = _everyone_overwrite(visibility)
+	if wanted is not None and channel.overwrites_for(guild.default_role) != wanted:
+		await channel.set_permissions(guild.default_role, overwrite=wanted)
+
+
+# Combat channels, one text and one voice channel per locked-down set of coordinates.
+
+
+async def create_combat_channels(
+	guild: discord.Guild, galaxy: Galaxy, coordinates: str, control: discord.Role
+) -> tuple[GuildChannel, GuildChannel]:
+	category = get_channel(guild, galaxy, ch.CAT_FLEET)
+	parent = category if isinstance(category, discord.CategoryChannel) else None
+	overwrites = _overwrites(guild, ch.HIDDEN, control)
+	return await asyncio.gather(
+		_create(guild, ch.TEXT, f"combat-{coordinates}", parent, overwrites),
+		_create(guild, ch.VOICE, f"Combat {coordinates}", parent, overwrites),
+	)
+
+
+async def delete_channels(guild: discord.Guild, channel_ids: list[int]) -> None:
+	channels = [guild.get_channel(id) for id in channel_ids]
+	await asyncio.gather(
+		*(c.delete(reason="ADAMA: lockdown over") for c in channels if c is not None)
+	)
+
+
+# /endgame
+
+
+OPEN_TEXT = discord.PermissionOverwrite(
+	view_channel=True, send_messages=True, read_message_history=True
+)
+OPEN_VOICE = discord.PermissionOverwrite(view_channel=True, connect=True, speak=True)
+READ_ONLY_TEXT = discord.PermissionOverwrite(
+	view_channel=True, send_messages=False, read_message_history=True
+)
+
+
+def game_channels(guild: discord.Guild, galaxy: Galaxy) -> list[GuildChannel]:
+	"""Every ship, fleet, council, brig and combat channel."""
+	channels = [guild.get_channel(id) for id in managed_channels(galaxy)]
+	return [c for c in channels if c is not None]
+
+
+async def open_to_everyone(guild: discord.Guild, galaxy: Galaxy) -> None:
+	"""/endgame: everyone can read and post in every game channel and read
+	#fleet-status. Undone by the next /startinitialization."""
+	everyone = guild.default_role
+	changes = [
+		channel.set_permissions(
+			everyone,
+			overwrite=OPEN_VOICE
+			if isinstance(channel, (discord.VoiceChannel, discord.StageChannel))
+			else OPEN_TEXT,
+		)
+		for channel in game_channels(guild, galaxy)
+	]
+	fleet_status = get_channel(guild, galaxy, ch.FLEET_STATUS)
+	if fleet_status is not None:
+		changes.append(fleet_status.set_permissions(everyone, overwrite=READ_ONLY_TEXT))
+	await asyncio.gather(*changes)
+
+
+async def announce_everywhere(guild: discord.Guild, galaxy: Galaxy, text: str) -> None:
+	"""Posts in every game text channel and every PDA."""
+	targets = [
+		c for c in game_channels(guild, galaxy) if isinstance(c, discord.TextChannel)
+	]
+	for channel_id in galaxy.discord.pdas.values():
+		pda = guild.get_channel(channel_id)
+		if isinstance(pda, discord.TextChannel):
+			targets.append(pda)
+
+	async def send(channel: discord.TextChannel) -> None:
+		try:
+			await channel.send(text, allowed_mentions=NO_MENTIONS)
+		except discord.HTTPException:
+			logger.warning("Could not post the game-over message in #%s", channel.name)
+
+	await asyncio.gather(*(send(channel) for channel in targets))
 
 
 async def reset_control(control: discord.Role, *, keep: discord.Member) -> None:
@@ -730,19 +842,28 @@ async def post_notices(
 ) -> None:
 	"""Posts every notice. Different channels are posted to at the same time (each has
 	its own rate limit); notices for the same channel keep their order. A notice with
-	`ping` mentions the control role (found through `roles`); one with `claim` is
-	offered to control to take (see `take_call`)."""
+	`ping` mentions the control role (found through `roles`) or, in a PDA, its owner;
+	one with `claim` is offered to control to take (see `take_call`)."""
 	control = get_control_role(guild, roles) if roles else None
-	queues: dict[int, tuple[discord.TextChannel, list[tuple[str, bool, bool]]]] = {}
+	Queued = tuple[str, discord.AllowedMentions, bool]
+	queues: dict[int, tuple[discord.TextChannel, list[Queued]]] = {}
 	for notice in notices:
 		channel = _notice_channel(guild, galaxy, notice)
 		if isinstance(channel, discord.TextChannel):
-			ping = notice.ping and control is not None
-			text = (
-				f"{control.mention} {notice.text}" if ping and control else notice.text
-			)
+			text, mentions = notice.text, NO_MENTIONS
+			owner = galaxy.players.get(notice.id) if notice.target == PDA else None
+			if notice.ping and owner is not None:
+				text = f"<@{owner.discord_user_id}> {text}"
+				mentions = discord.AllowedMentions(
+					users=[discord.Object(owner.discord_user_id)], roles=False
+				)
+			elif notice.ping and control is not None:
+				text = f"{control.mention} {text}"
+				mentions = discord.AllowedMentions(
+					roles=[control], users=False, everyone=False
+				)
 			queues.setdefault(channel.id, (channel, []))[1].append(
-				(text, ping, notice.claim)
+				(text, mentions, notice.claim)
 			)
 		else:
 			logger.warning(
@@ -752,15 +873,8 @@ async def post_notices(
 				notice.text,
 			)
 
-	async def post_in_order(
-		channel: discord.TextChannel, texts: list[tuple[str, bool, bool]]
-	) -> None:
-		for text, ping, claim in texts:
-			mentions = (
-				discord.AllowedMentions(roles=[control], users=False, everyone=False)
-				if ping and control
-				else NO_MENTIONS
-			)
+	async def post_in_order(channel: discord.TextChannel, texts: list[Queued]) -> None:
+		for text, mentions, claim in texts:
 			message = await send_long(channel, text, allowed_mentions=mentions)
 			if claim:
 				await offer_call(message)
@@ -823,6 +937,8 @@ def _notice_channel(
 		return get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
 	if notice.target == BRIG:
 		return get_channel(guild, galaxy, ch.BRIG)
+	if notice.target == COUNCIL:
+		return get_channel(guild, galaxy, ch.COUNCIL_CHAMBERS)
 	return None
 
 

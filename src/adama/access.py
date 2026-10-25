@@ -8,7 +8,8 @@ from dataclasses import dataclass
 
 from adama import channels as ch
 from adama.models.galaxy import Galaxy
-from adama.models.player import LOCATION_BRIG, LOCATION_COMBAT, Player
+from adama.models.player import LOCATION_BRIG, Player
+from adama.rules.players import combat_coordinates
 
 
 @dataclass(frozen=True)
@@ -125,14 +126,16 @@ def player_access(galaxy: Galaxy, player: Player) -> dict[int, Access]:
 	for coords in galaxy.coordinates.values():
 		if not coords.locked_down:
 			continue
-		in_this_combat = (
-			player.location == LOCATION_COMBAT
-			and player.combat_origin_ship in galaxy.ships
-			and galaxy.ships[player.combat_origin_ship].coordinates
-			== coords.coordinates
+		in_this_combat = combat_coordinates(galaxy, player) == coords.coordinates
+		# First responders see them by travelling to combat, or by being crew aboard
+		# the ship commanding the lockdown (even if it has since jumped away).
+		commanding = (
+			player.first_responder
+			and coords.commanding_ship is not None
+			and coords.commanding_ship in player.crew_affiliations
+			and player.location == coords.commanding_ship
 		)
-		aboard_here = ship is not None and ship.coordinates == coords.coordinates
-		if in_this_combat or (player.first_responder and aboard_here):
+		if in_this_combat or commanding:
 			text, voice = POST, VOICE
 		elif player.battlemap_observer:
 			text, voice = READ_ONLY, LISTEN

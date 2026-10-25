@@ -23,6 +23,8 @@ class Player:
 	crew_affiliations: list[str] = field(default_factory=list)
 	location: str = LOCATION_NONE
 	combat_origin_ship: str | None = None
+	# Where they are fighting: their origin ship may jump away mid-combat.
+	combat_coordinates: str | None = None
 
 	wounded: bool = False
 	brigged: bool = False
@@ -48,6 +50,7 @@ class Player:
 			"crew_affiliations": list(self.crew_affiliations),
 			"location": self.location,
 			"combat_origin_ship": self.combat_origin_ship,
+			"combat_coordinates": self.combat_coordinates,
 			"wounded": self.wounded,
 			"brigged": self.brigged,
 			"dead": self.dead,
@@ -73,6 +76,7 @@ class Player:
 			crew_affiliations=list(data["crew_affiliations"]),
 			location=data["location"],
 			combat_origin_ship=data["combat_origin_ship"],
+			combat_coordinates=data.get("combat_coordinates"),
 			wounded=data["wounded"],
 			brigged=data["brigged"],
 			dead=data["dead"],

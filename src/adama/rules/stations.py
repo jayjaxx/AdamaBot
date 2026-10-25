@@ -142,9 +142,17 @@ def _crew_text(crew: list[Unit]) -> str:
 
 
 def activate(
-	ship: Ship, station_id: str, mode: str | None, unit_ids: list[str] | None, by: str
+	ship: Ship,
+	station_id: str,
+	mode: str | None,
+	unit_ids: list[str] | None,
+	by: str,
+	*,
+	late: set[str] | None = None,
 ) -> list[Notice]:
-	"""/activate: spends inputs and crew, gains outputs."""
+	"""/activate: spends inputs and crew, gains outputs. While the ship's coordinates
+	are in lockdown the cog passes the galaxy's late activations: a start-of-turn
+	station activated then is added to them and control is alerted."""
 	station = station_on(ship, station_id)
 	if not station.usable:
 		raise GameError(f"{station.name} can't be activated.")
@@ -188,6 +196,17 @@ def activate(
 			Notice(
 				CONTROL,
 				f"{by} used `{station.id}` {station.name} on the {ship.name}: {station.description}",
+				claim=True,
+			)
+		)
+	if station.startofturn and late is not None:
+		late.add(station.id)
+		notices.append(
+			Notice(
+				CONTROL,
+				f"{by} activated the start-of-turn station `{station.id}` "
+				f"{station.name} on the {ship.name} during the lockdown at "
+				f"{ship.coordinates}.",
 				claim=True,
 			)
 		)
