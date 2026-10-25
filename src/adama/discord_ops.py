@@ -5,13 +5,17 @@ The bot needs the Administrator permission.
 """
 
 import logging
+import re
 
 import discord
 
 from adama import channels as ch
+from adama.access import Access, managed_channels, player_access
 from adama.config import RolesConfig
 from adama.models.galaxy import Galaxy
+from adama.models.player import Player
 from adama.models.ship import Ship
+from adama.rules import BRIDGE, BROADCAST, CONTROL, HANGAR, PDA, Notice
 from adama.perms import UserError, is_gm
 from adama.status import fleet_status, split_message
 
@@ -252,6 +256,54 @@ async def strip_member_overwrites(channel: GuildChannel) -> None:
 		await channel.edit(overwrites=kept)
 
 
+PDA_CATEGORY_PATTERN = re.compile(rf"{ch.PDA_CATEGORY}( \d+)?")
+
+
+def is_ship_category(name: str, text_channel_names: set[str]) -> bool:
+	"""Whether a category looks like one ADAMA made for a ship: it holds that ship's
+	hangar and bridge text channels."""
+	return {
+		_normalise(f"{name}-hangar", ch.TEXT),
+		_normalise(f"{name}-bridge", ch.TEXT),
+	} <= text_channel_names
+
+
+def is_pda_category(name: str) -> bool:
+	return PDA_CATEGORY_PATTERN.fullmatch(name) is not None
+
+
+async def _delete_category(category: discord.CategoryChannel) -> None:
+	for channel in category.channels:
+		await channel.delete(reason="ADAMA: new game")
+	await category.delete(reason="ADAMA: new game")
+
+
+async def delete_untracked_leftovers(guild: discord.Guild, galaxy: Galaxy) -> list[str]:
+	"""Deletes ship and PDA categories from an earlier game the bot no longer has a record
+	of (e.g. after a restart with an in-memory database). Returns their names."""
+	known = set(galaxy.discord.channels.values()) | set(galaxy.discord.pda_categories)
+	known.update(
+		c.get(ch.SHIP_CATEGORY, 0) for c in galaxy.discord.ship_channels.values()
+	)
+	removed: list[str] = []
+	for category in guild.categories:
+		if category.id in known:
+			continue
+		texts = {
+			c.name for c in category.channels if isinstance(c, discord.TextChannel)
+		}
+		if is_ship_category(category.name, texts):
+			role = discord.utils.get(guild.roles, name=ch.crew_role_name(category.name))
+			if role is not None:
+				for member in role.members:
+					await member.remove_roles(role, reason="ADAMA: new game")
+		elif not is_pda_category(category.name):
+			continue
+		removed.append(category.name)
+		await _delete_category(category)
+	return removed
+
+
 async def reset_server(guild: discord.Guild, galaxy: Galaxy) -> None:
 	"""Removes the previous game's ship channels, PDAs, combat channels, lobby message and
 	individual permissions, and empties the channels /startinitialization clears."""
@@ -267,6 +319,11 @@ async def reset_server(guild: discord.Guild, galaxy: Galaxy) -> None:
 			for member in role.members:
 				await member.remove_roles(role, reason="ADAMA: new game")
 		await delete_ship_channels(guild, galaxy, ship_id, delete_role=False)
+	leftovers = await delete_untracked_leftovers(guild, galaxy)
+	if leftovers:
+		logger.info(
+			"Deleted untracked leftovers in %s: %s", guild.name, ", ".join(leftovers)
+		)
 
 	for channel_id in [*galaxy.discord.pdas.values(), *galaxy.discord.pda_categories]:
 		channel = guild.get_channel(channel_id)
@@ -473,3 +530,167 @@ async def fill_lobby(guild: discord.Guild, galaxy: Galaxy, roles: RolesConfig) -
 		member = guild.get_member(user_id)
 		if member is not None:
 			await admit_to_lobby(guild, galaxy, member)
+
+
+# Players in game: permissions, roles, voice and notices.
+
+
+def _to_overwrite(
+	channel: GuildChannel, access: Access | None
+) -> discord.PermissionOverwrite:
+	if access is None:
+		return discord.PermissionOverwrite()
+	if isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+		return discord.PermissionOverwrite(
+			view_channel=True, connect=access.connect, speak=access.speak
+		)
+	return discord.PermissionOverwrite(
+		view_channel=True,
+		send_messages=access.send,
+		read_message_history=access.history,
+	)
+
+
+def ship_channel(
+	guild: discord.Guild, galaxy: Galaxy, ship_id: str, kind: str
+) -> GuildChannel | None:
+	channel_id = galaxy.discord.ship_channels.get(ship_id, {}).get(kind)
+	return guild.get_channel(channel_id) if channel_id is not None else None
+
+
+async def sync_player(
+	guild: discord.Guild, galaxy: Galaxy, player: Player, *, travelled: bool = False
+) -> None:
+	"""Makes the player's Discord access match the game state.
+
+	If they are in a voice channel they may no longer use, a /travel moves them into
+	their new ship's Hangar VC; any other move drops them and tells their PDA.
+	"""
+	member = guild.get_member(player.discord_user_id)
+	if member is None:
+		return
+	desired = player_access(galaxy, player)
+	managed = managed_channels(galaxy)
+	for channel_id in managed:
+		channel = guild.get_channel(channel_id)
+		if channel is None:
+			continue
+		want = _to_overwrite(channel, desired.get(channel_id))
+		if channel.overwrites_for(member) != want:
+			await channel.set_permissions(
+				member, overwrite=None if want.is_empty() else want
+			)
+
+	pda = guild.get_channel(player.pda_channel_id or 0)
+	if pda is not None and pda.overwrites_for(member) != PDA_ACCESS:
+		await pda.set_permissions(member, overwrite=PDA_ACCESS)
+
+	voice = member.voice.channel if member.voice else None
+	if voice is None or voice.id not in managed:
+		return
+	allowed = desired.get(voice.id)
+	if allowed is not None and allowed.connect:
+		return
+	hangar_vc = ship_channel(guild, galaxy, player.location, ch.SHIP_VC_HANGAR)
+	if travelled and isinstance(hangar_vc, discord.VoiceChannel):
+		await member.move_to(hangar_vc)
+		return
+	await member.move_to(None)
+	if isinstance(pda, discord.TextChannel):
+		await pda.send(
+			f"You were disconnected from {voice.name} because you are no longer there."
+		)
+
+
+async def sync_crew_roles(guild: discord.Guild, galaxy: Galaxy, player: Player) -> None:
+	"""Gives the player exactly the crew roles of their crew affiliations."""
+	member = guild.get_member(player.discord_user_id)
+	if member is None:
+		return
+	for ship_id, created in galaxy.discord.ship_channels.items():
+		role = guild.get_role(created.get(ch.SHIP_ROLE, 0))
+		if role is None:
+			continue
+		crew = ship_id in player.crew_affiliations and not player.dead
+		if crew and role not in member.roles:
+			await member.add_roles(role, reason="ADAMA: crew")
+		elif not crew and role in member.roles:
+			await member.remove_roles(role, reason="ADAMA: crew")
+
+
+async def post_notices(
+	guild: discord.Guild, galaxy: Galaxy, notices: list[Notice]
+) -> None:
+	for notice in notices:
+		channel: GuildChannel | None = None
+		if notice.target == HANGAR:
+			channel = ship_channel(guild, galaxy, notice.id, ch.SHIP_HANGAR)
+		elif notice.target == BRIDGE:
+			channel = ship_channel(guild, galaxy, notice.id, ch.SHIP_BRIDGE)
+		elif notice.target == PDA:
+			player = galaxy.players.get(notice.id)
+			channel = guild.get_channel(player.pda_channel_id or 0) if player else None
+		elif notice.target == CONTROL:
+			channel = get_channel(guild, galaxy, ch.CONTROL_CHAT)
+		elif notice.target == BROADCAST:
+			channel = get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
+		if isinstance(channel, discord.TextChannel):
+			await send_long(channel, notice.text)
+		else:
+			logger.warning(
+				"Could not post notice to %s %s: %s",
+				notice.target,
+				notice.id,
+				notice.text,
+			)
+
+
+async def close_lobby(guild: discord.Guild, galaxy: Galaxy) -> None:
+	for key in LOBBY_ACCESS:
+		channel = get_channel(guild, galaxy, key)
+		if channel is not None:
+			await strip_member_overwrites(channel)
+	await delete_start_message(guild, galaxy)
+	galaxy.discord.queue.clear()
+
+
+async def set_role_permissions(
+	guild: discord.Guild, galaxy: Galaxy, roles: RolesConfig
+) -> None:
+	"""Role-wide permissions for the game: the press posts news, and control can see,
+	post and speak in every fleet channel."""
+	control = get_control_role(guild, roles)
+	press = discord.utils.get(guild.roles, name=roles.PRESS)
+	newscasts = get_channel(guild, galaxy, ch.NEWSCASTS)
+	if press is not None and newscasts is not None:
+		await newscasts.set_permissions(press, view_channel=True, send_messages=True)
+	if control is None:
+		return
+	for key in (
+		ch.LAWS,
+		ch.SECRET_LAWS,
+		ch.COUNCIL_NOTES,
+		ch.NEWSCASTS,
+		ch.CONTROL_BROADCASTS,
+		ch.BRIG,
+	):
+		channel = get_channel(guild, galaxy, key)
+		if channel is not None:
+			await channel.set_permissions(
+				control,
+				view_channel=True,
+				send_messages=True,
+				read_message_history=True,
+			)
+	for key in (ch.VC_FLEET_ANNOUNCEMENTS, ch.VC_COUNCIL_CHAMBERS, ch.VC_BRIG):
+		channel = get_channel(guild, galaxy, key)
+		if channel is not None:
+			await channel.set_permissions(
+				control, view_channel=True, connect=True, speak=True
+			)
+
+
+async def delete_pda(guild: discord.Guild, galaxy: Galaxy, user_id: int) -> None:
+	channel = guild.get_channel(galaxy.discord.pdas.pop(user_id, 0))
+	if channel is not None:
+		await channel.delete(reason="ADAMA: no game role")

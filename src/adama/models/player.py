@@ -29,8 +29,8 @@ class Player:
 	dead: bool = False
 	president: bool = False
 	councillor: bool = False
-	battlemapper: bool = False
 	battlemap_observer: bool = False
+	# Runs the battlemap; may /travel to combat during a lockdown.
 	first_responder: bool = False
 	permitted: bool = False
 	# GM-only, no gameplay effect.
@@ -53,7 +53,6 @@ class Player:
 			"dead": self.dead,
 			"president": self.president,
 			"councillor": self.councillor,
-			"battlemapper": self.battlemapper,
 			"battlemap_observer": self.battlemap_observer,
 			"first_responder": self.first_responder,
 			"permitted": self.permitted,
@@ -79,7 +78,6 @@ class Player:
 			dead=data["dead"],
 			president=data["president"],
 			councillor=data["councillor"],
-			battlemapper=data["battlemapper"],
 			battlemap_observer=data["battlemap_observer"],
 			first_responder=data["first_responder"],
 			permitted=data["permitted"],

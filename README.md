@@ -17,6 +17,11 @@ DEV_GUILD_IDS=[]
 [roles]
 CONTROL="Control"            # the control (GM) role; created if missing
 GAME_STARTER="Game Starter"  # may run /startinitialization, as may Discord admins
+# Read at /startgame. Crews use each ship's "<ship name> Crew" role.
+PRESIDENT="President"
+COUNCILLOR="Councillor"
+FIRST_RESPONDER="First Responder"
+PRESS="Press"              # may post in #newscasts
 ```
 
 # Discord setup
@@ -33,7 +38,7 @@ First you must install the ADAMA package to support module namespacing
 
 Then you can run the main.py entrypoint located in `src/adama/main.py`
 
-While `DEBUG_MODE` in `src/adama/constants.py` is `True`, the game state is kept in memory only and is lost when the bot restarts. Set it to `False` to store it in the SQLite file at `DB_PATH`.
+The game state is saved to the SQLite file at `DB_PATH` (set under `[database]` in `config.toml`), so a game survives restarts. Set `IN_MEMORY=true` there to keep it in memory only instead, which is handy for testing: every restart then starts from scratch.
 
 # Development
 `make test` runs the tests (`pytest`) and `make lint` runs `ruff` and `mypy`.

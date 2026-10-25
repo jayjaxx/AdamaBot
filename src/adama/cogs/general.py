@@ -209,6 +209,26 @@ class GeneralCommands(commands.Cog):
 			interaction, "Sent you the control command list in a DM.", ephemeral=True
 		)
 
+	@app_commands.command(
+		name="shutdown",
+		description="Shut the bot down (bot owner only: it stops ADAMA in every server)",
+		extras=GM,
+	)
+	async def shutdown(self, interaction: discord.Interaction):
+		if not await self.bot.is_owner(interaction.user):
+			raise UserError("Only the bot's owner can shut it down.")
+		logger.info("Shutdown requested by %s", interaction.user.name)
+		await reply(
+			interaction,
+			"Shutting down. Game state is saved after every command.",
+			ephemeral=True,
+		)
+		# Wait for any command still changing a game, so nothing is cut off mid-save.
+		for guild in self.bot.guilds:
+			async with self.galaxies.lock(guild.id):
+				pass
+		await self.bot.close()
+
 
 async def setup(bot: AdamaBot):
 	cog = GeneralCommands(bot)

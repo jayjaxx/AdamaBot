@@ -19,11 +19,20 @@ class RolesConfig:
 	CONTROL: str = "Control"
 	# Users with this role (or Discord Administrator) may run /startinitialization.
 	GAME_STARTER: str = "Game Starter"
+	# Read at /startgame to set each player's offices. Ship crews use "<ship name> Crew".
+	PRESIDENT: str = "President"
+	COUNCILLOR: str = "Councillor"
+	# First responders run the battlemap and may /travel to combat during a lockdown.
+	FIRST_RESPONDER: str = "First Responder"
+	# May post in #newscasts.
+	PRESS: str = "Press"
 
 
 @dataclass
 class DatabaseConfig:
 	DB_PATH: str = "src/adama/db/adama.sqlite"
+	# Keep the game state in memory only: it is lost when the bot restarts.
+	IN_MEMORY: bool = False
 
 
 @dataclass

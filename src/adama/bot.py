@@ -8,13 +8,28 @@ from adama import channels as ch
 from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
-from adama.perms import UserError
+from adama.perms import UserError, is_gm
+from adama.rules import GameError
 from adama.status import split_message
 
 logger = logging.getLogger()
 
 # Commands that still work in the otherwise blind #starting-games.
 STARTING_GAMES_COMMANDS = {"startinitialization"}
+# The only commands brigged and dead players can use.
+BRIGGED_COMMANDS = {"status", "roll", "control", "help"}
+DEAD_COMMANDS = {"control", "help"}
+
+
+def restricted_reason(dead: bool, brigged: bool, command: str | None) -> str | None:
+	"""Why a dead or brigged player can't use this command, if they can't."""
+	if dead and command not in DEAD_COMMANDS:
+		return "You're dead: you can only use /control and /help."
+	if brigged and command not in BRIGGED_COMMANDS:
+		return (
+			"You're in the brig: you can only use /status, /roll, /control and /help."
+		)
+	return None
 
 
 def is_blind(interaction: discord.Interaction) -> bool:
@@ -59,13 +74,24 @@ class AdamaTree(app_commands.CommandTree):
 				ephemeral=True,
 			)
 			return False
+		bot = interaction.client
+		if isinstance(bot, AdamaBot) and not is_gm(interaction.user, bot.config.roles):
+			galaxy = bot.container.services.galaxy.get(interaction.guild.id)
+			player = galaxy.player_by_user(interaction.user.id)
+			command = interaction.command.name if interaction.command else None
+			if player is not None:
+				reason = restricted_reason(player.dead, player.brigged, command)
+				if reason is not None:
+					await reply(interaction, reason, ephemeral=True)
+					return False
 		return True
 
 	async def on_error(
 		self, interaction: discord.Interaction, error: app_commands.AppCommandError
 	):
-		if isinstance(error, UserError):
-			message = str(error)
+		original = getattr(error, "original", error)
+		if isinstance(original, (UserError, GameError)):
+			message = str(original)
 		elif isinstance(error, app_commands.CheckFailure):
 			message = str(error) or "You can't use this command here."
 		else:

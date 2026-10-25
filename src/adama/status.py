@@ -167,7 +167,6 @@ def pda_status(galaxy: Galaxy, player: Player) -> str:
 		for office, on in (
 			("President", player.president),
 			("Councillor", player.councillor),
-			("Battlemapper", player.battlemapper),
 			("Battlemap observer", player.battlemap_observer),
 			("First responder", player.first_responder),
 		)

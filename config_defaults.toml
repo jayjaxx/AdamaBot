@@ -7,6 +7,12 @@ DEV_GUILD_IDS=[]
 [roles]
 CONTROL="Control"
 GAME_STARTER="Game Starter"
+PRESIDENT="President"
+COUNCILLOR="Councillor"
+FIRST_RESPONDER="First Responder"
+PRESS="Press"
 
 [database]
 DB_PATH="src/adama/db/adama.sqlite"
+# true keeps the game state in memory only, so it is lost when the bot restarts (handy for testing).
+IN_MEMORY=false

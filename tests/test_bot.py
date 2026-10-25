@@ -22,14 +22,32 @@ from adama.status import (
 
 ROOT = Path(__file__).parent.parent
 
-PLAYER_COMMANDS = {"ping", "roll", "status", "fleet", "control", "help", "gm"}
+PLAYER_COMMANDS = {
+	"ping",
+	"roll",
+	"status",
+	"fleet",
+	"control",
+	"help",
+	"gm",
+	"travel",
+	"locate",
+}
 GM_COMMANDS = {
+	"startgame",
+	"addplayer",
+	"addteam",
+	"removeteam",
+	"teleportplayer",
+	"watch",
+	"unwatch",
 	"startinitialization",
 	"loadship",
 	"unloadship",
 	"playerlimit",
 	"endgame",
 	"gmhelp",
+	"shutdown",
 }
 
 
@@ -169,3 +187,25 @@ def test_brig_is_cleared_on_init():
 	assert ch.SPECS[ch.BRIG].cleared_on_init
 	assert ch.SPECS[ch.VC_BRIG].cleared_on_init
 	assert not ch.SPECS[ch.PREGAME_CHAT].cleared_on_init
+
+
+def test_dead_and_brigged_command_restrictions():
+	from adama.bot import restricted_reason
+
+	assert restricted_reason(False, False, "travel") is None
+	assert restricted_reason(False, True, "status") is None
+	assert restricted_reason(False, True, "travel") is not None
+	assert restricted_reason(True, False, "control") is None
+	assert restricted_reason(True, False, "status") is not None
+
+
+def test_recognises_leftover_ship_and_pda_categories():
+	from adama.discord_ops import is_pda_category, is_ship_category
+
+	assert is_ship_category(
+		"Refinery 124", {"refinery-124-hangar", "refinery-124-bridge"}
+	)
+	assert not is_ship_category("Refinery 124", {"refinery-124-hangar"})
+	assert not is_ship_category("General", {"general"})
+	assert is_pda_category("PDAs") and is_pda_category("PDAs 3")
+	assert not is_pda_category("PDAs and more")

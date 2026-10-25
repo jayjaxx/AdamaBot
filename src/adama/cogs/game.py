@@ -11,6 +11,7 @@ from adama.bot import AdamaBot, reply
 from adama.models.galaxy import STATE_IDLE, STATE_INITIALIZING, Galaxy
 from adama.models.ship import Ship
 from adama.perms import UserError, control_only, game_starter_only, is_gm
+from adama.rules.players import LobbyMember, start_game
 from adama.shipfiles import ShipFile, validate_ship_files
 from adama.status import ship_summary
 
@@ -329,6 +330,43 @@ class GameCommands(commands.Cog):
 		)
 		await reply(
 			interaction, "Your request has been sent to control.", ephemeral=True
+		)
+
+	@app_commands.command(
+		name="startgame",
+		description="Start the game: create players from the lobby's roles",
+		extras=GM,
+	)
+	@control_only()
+	async def startgame(self, interaction: discord.Interaction):
+		guild = interaction.guild
+		assert guild is not None
+		async with self.galaxies.lock(guild.id):
+			galaxy = self.galaxies.get(guild.id)
+			lobby = [
+				LobbyMember(member.id, frozenset(role.name for role in member.roles))
+				for user_id in galaxy.discord.admitted
+				if (member := guild.get_member(user_id)) is not None
+			]
+			players, left_out, notices = start_game(galaxy, lobby, self.roles)
+			await interaction.response.defer(ephemeral=True, thinking=True)
+			for player in players:
+				player.pda_channel_id = galaxy.discord.pdas.get(player.discord_user_id)
+			for user_id in left_out:
+				await ops.delete_pda(guild, galaxy, user_id)
+			await ops.close_lobby(guild, galaxy)
+			await ops.set_role_permissions(guild, galaxy, self.roles)
+			self.galaxies.save(galaxy)
+			for player in players:
+				await ops.sync_player(guild, galaxy, player)
+			await ops.post_notices(guild, galaxy, notices)
+			await ops.update_fleet_status(guild, galaxy)
+			self.galaxies.save(galaxy)
+		await reply(
+			interaction,
+			f"The game has started with {len(players)} players. "
+			f"{len(left_out)} lobby members had no game role and were left out.",
+			ephemeral=True,
 		)
 
 	@app_commands.command(name="endgame", description="End the game", extras=GM)
