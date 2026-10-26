@@ -9,7 +9,12 @@ from adama import channels as ch
 from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
-from adama.models.galaxy import STATE_ENDED, Galaxy
+from adama.models.galaxy import (
+	STATE_ENDED,
+	STATE_IN_PROGRESS,
+	STATE_INITIALIZING,
+	Galaxy,
+)
 from adama.models.player import LOCATION_COMBAT, Player
 from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.rules import GameError
@@ -151,9 +156,16 @@ class AdamaTree(app_commands.CommandTree):
 
 
 SHUTDOWN_ALERT = (
-	"@everyone **ADAMA is shutting down.** Commands won't work until it has been "
+	"**ADAMA is shutting down.** Commands won't work until it has been "
 	"restarted, so please don't send any until then. It should be back shortly."
 )
+
+
+def shutdown_alert(galaxy: Galaxy) -> str:
+	"""Everyone is pinged only while a game is being set up or played."""
+	if galaxy.state in (STATE_INITIALIZING, STATE_IN_PROGRESS):
+		return f"@everyone {SHUTDOWN_ALERT}"
+	return SHUTDOWN_ALERT
 
 
 class AdamaBot(commands.Bot):
@@ -196,7 +208,8 @@ class AdamaBot(commands.Bot):
 		logger.info(f"{interaction.user.name} ran /{command.name} in {time_taken}")
 
 	async def announce_shutdown(self) -> None:
-		"""Pings everyone in each server's #control-broadcasts that the bot is going down."""
+		"""Posts in each server's #control-broadcasts that the bot is going down, pinging
+		everyone if a game is being set up or played."""
 		everyone = discord.AllowedMentions(everyone=True)
 		for guild in self.guilds:
 			galaxy = self.container.services.galaxy.get(guild.id)
@@ -205,7 +218,7 @@ class AdamaBot(commands.Bot):
 			if not isinstance(channel, discord.TextChannel):
 				continue
 			try:
-				await channel.send(SHUTDOWN_ALERT, allowed_mentions=everyone)
+				await channel.send(shutdown_alert(galaxy), allowed_mentions=everyone)
 			except discord.HTTPException:
 				logger.warning("Couldn't post the shutdown alert in %s", guild.name)
 

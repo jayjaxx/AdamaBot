@@ -467,3 +467,19 @@ def test_only_status_and_control_work_after_the_game_ends():
 
 	assert {"status", "control", "startinitialization"} <= ENDED_COMMANDS
 	assert not {"travel", "endturn", "help", "lockdown"} & ENDED_COMMANDS
+
+
+def test_shutdown_pings_everyone_only_during_a_game():
+	from adama.bot import shutdown_alert
+	from adama.models.galaxy import (
+		STATE_ENDED,
+		STATE_IDLE,
+		STATE_IN_PROGRESS,
+		STATE_INITIALIZING,
+	)
+
+	for state in (STATE_INITIALIZING, STATE_IN_PROGRESS):
+		assert shutdown_alert(Galaxy(1, state=state)).startswith("@everyone ")
+	for state in (STATE_IDLE, STATE_ENDED):
+		text = shutdown_alert(Galaxy(1, state=state))
+		assert "@everyone" not in text and "shutting down" in text
