@@ -13,6 +13,7 @@ from adama.models.ship import DISTANCES, RATION_LEVELS
 from adama.perms import UserError, control_only
 from adama.rules import Notice
 from adama.rules import editing
+from adama.rules import stations as st_rules
 from adama.rules import jumps as jump_rules
 
 logger = logging.getLogger()
@@ -248,6 +249,41 @@ class EditingCommands(commands.Cog):
 			interaction, editing.set_mode, station, mode, action, num, resource
 		)
 
+	@app_commands.command(
+		name="exhauststation",
+		description="Stop a station being used again this turn",
+		extras=GM,
+	)
+	@app_commands.autocomplete(station=station_autocomplete)
+	@control_only()
+	async def station_exhaust(self, interaction: discord.Interaction, station: str):
+		await self._set_exhausted(interaction, station, True)
+
+	@app_commands.command(
+		name="refreshstation",
+		description="Let a station be used again this turn",
+		extras=GM,
+	)
+	@app_commands.autocomplete(station=station_autocomplete)
+	@control_only()
+	async def station_refresh(self, interaction: discord.Interaction, station: str):
+		await self._set_exhausted(interaction, station, False)
+
+	async def _set_exhausted(
+		self, interaction: discord.Interaction, station_id: str, exhausted: bool
+	) -> None:
+		assert interaction.guild is not None
+		async with self.galaxies.lock(interaction.guild.id):
+			galaxy = self.galaxy(interaction)
+			station = st_rules.set_exhausted(galaxy, station_id, exhausted)
+			state = "exhausted" if exhausted else "ready"
+			await self.finish(
+				interaction,
+				galaxy,
+				[],
+				f"`{station.id}` {station.name} is now {state}.",
+			)
+
 	@station.command(name="destroy", description="Destroy a station")
 	@app_commands.autocomplete(station=station_autocomplete)
 	@control_only()
@@ -282,9 +318,10 @@ class EditingCommands(commands.Cog):
 				f"Conjured the {created.name} (`{created.id}`) at {created.coordinates}.",
 			)
 
-	@ship.command(
-		name="teleport",
+	@app_commands.command(
+		name="teleportship",
 		description="Move a ship and everything aboard to any coordinates, without fuel",
+		extras=GM,
 	)
 	@app_commands.describe(coordinates="5 digits, e.g. 12903")
 	@app_commands.autocomplete(ship_name=ship_autocomplete)
@@ -307,9 +344,10 @@ class EditingCommands(commands.Cog):
 			# First responders left behind in combat by a commanding ship.
 			await ops.sync_players(guild, galaxy, moved.resync)
 
-	@ship.command(
-		name="destroy",
+	@app_commands.command(
+		name="destroyship",
 		description="Mark a ship destroyed (nothing is deleted: move people yourself)",
+		extras=GM,
 	)
 	@app_commands.autocomplete(ship_name=ship_autocomplete)
 	@control_only()

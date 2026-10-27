@@ -253,8 +253,10 @@ class TravelCommands(commands.Cog):
 				notices = shuttle_rules.revoke_shuttle(ship, shuttle)
 			await self.finish(interaction, galaxy, notices, "Clearance revoked.")
 
-	@shuttle.command(
-		name="teleport", description="Move a shuttle and its cargo to any ship"
+	@app_commands.command(
+		name="teleportshuttle",
+		description="Move a shuttle and its cargo to any ship",
+		extras=GM,
 	)
 	@app_commands.autocomplete(
 		shuttle=any_shuttle_autocomplete, destination=ship_autocomplete

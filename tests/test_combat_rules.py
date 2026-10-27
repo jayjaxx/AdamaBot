@@ -417,3 +417,24 @@ def test_combat_ship_flag():
 	editing.set_combat_ship(lucas, False)
 	with pytest.raises(GameError, match="not a combat ship"):
 		editing.set_combat_ship(lucas, False)
+
+
+def test_destroying_a_ship_lists_who_is_aboard():
+	g = galaxy()
+	aboard(g, "0200", "0005")
+	prisoner = aboard(g, "0300", "0006")
+	from adama.rules import characters as chars
+
+	chars.brig(g, prisoner)  # the brig is on the Aegis
+	notices = editing.destroy_ship(g, g.ships["0200"])
+	call = next(
+		n for n in notices if n.target == CONTROL and "players aboard" in n.text
+	)
+	assert call.claim and "<@5>" in call.text and "<@6>" not in call.text
+	notices = editing.destroy_ship(g, g.ships[AEGIS])
+	call = next(
+		n for n in notices if n.target == CONTROL and "players aboard" in n.text
+	)
+	assert "<@6> (in the brig)" in call.text
+	notices = editing.destroy_ship(g, g.ships["0600"])  # the Lucas: nobody aboard
+	assert any("Nobody was aboard" in n.text and not n.claim for n in notices)

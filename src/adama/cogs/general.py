@@ -179,12 +179,17 @@ class GeneralCommands(commands.Cog):
 		await ops.offer_call(call)
 		await reply(interaction, "Control has been summoned.", ephemeral=True)
 
-	def _lines(self, *, gm: bool, office: str | None = None) -> list[str]:
+	def _lines(
+		self, *, gm: bool, office: str | None = None, groups: bool = False
+	) -> list[str]:
 		"""One line per command: control commands (gm), or player commands of one office
-		(None for the commands every player has)."""
+		(None for the commands every player has). Control's command groups (/card,
+		/ship, ...) are listed only with `groups`, and only they are."""
 		lines: list[str] = []
 		for c in sorted(self.bot.tree.get_commands(), key=lambda c: c.name):
 			if bool(c.extras.get("gm")) != gm:
+				continue
+			if gm and isinstance(c, app_commands.Group) != groups:
 				continue
 			# A group (e.g. /station) lists each of its subcommands.
 			listed = c.commands if isinstance(c, app_commands.Group) else [c]
@@ -231,6 +236,9 @@ class GeneralCommands(commands.Cog):
 				)
 		if which in (HELP_CONTROL, HELP_ALL):
 			sections.append(("Control commands", self._lines(gm=True)))
+			sections.append(
+				("Control editing commands", self._lines(gm=True, groups=True))
+			)
 		return "\n\n".join(
 			"\n".join([f"**{header}**", *lines]) for header, lines in sections
 		)

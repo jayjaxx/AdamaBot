@@ -67,8 +67,6 @@ GM_COMMANDS = {
 	"teleportresource",
 	"damage",
 	"undamage",
-	"exhauststation",
-	"refreshstation",
 	"startriot",
 	"clearriot",
 	"teamphase",
@@ -106,6 +104,13 @@ GM_COMMANDS = {
 	"electcouncillor",
 	"depose",
 	"card",
+	"destroyship",
+	"teleportship",
+	"teleportshuttle",
+	"exhauststation",
+	"refreshstation",
+	"teleportunit",
+	"damageunit",
 	"lockdown",
 	"endlockdown",
 	"transfercommand",
@@ -185,7 +190,11 @@ def test_help_lists():
 	assert office.startswith("**President commands**") and "/roll" not in office
 	control = help_list("control")
 	assert control.startswith("**Control commands**") and "/endturn" in control
-	assert "/roll" not in control and "/card conjure" in control
+	assert "/roll" not in control and "/endturn" in control
+	editing = control.split("**Control editing commands**")[1]
+	assert "/card conjure" in editing and "/ship conjure" in editing
+	assert "/teleportship" in control.split("**Control editing commands**")[0]
+	assert "/endturn" not in editing
 	everything = help_list("all")
 	headers = [line for line in everything.splitlines() if line.startswith("**")]
 	assert headers == [
@@ -193,6 +202,7 @@ def test_help_lists():
 		"**President commands**",
 		"**First Responder commands**",
 		"**Control commands**",
+		"**Control editing commands**",
 	]
 
 
@@ -201,10 +211,10 @@ def test_groups_are_control_only():
 	asyncio.run(load_cogs(bot))
 	shuttle = bot.tree.get_command("shuttle")
 	assert isinstance(shuttle, discord.app_commands.Group)
-	assert {c.name for c in shuttle.commands} == {"conjure", "destroy", "teleport"}
+	assert {c.name for c in shuttle.commands} == {"conjure", "destroy"}
 	unit = bot.tree.get_command("unit")
 	assert isinstance(unit, discord.app_commands.Group)
-	assert "teleport" in {c.name for c in unit.commands}
+	assert "teleport" not in {c.name for c in unit.commands}
 	for group in ("shuttle", "card", "unit", "station", "ship"):
 		command = bot.tree.get_command(group)
 		assert isinstance(command, discord.app_commands.Group)

@@ -2,6 +2,7 @@
 
 from adama import ids
 from adama.models.galaxy import Galaxy
+from adama.models.player import LOCATION_BRIG
 from adama.models.resources import RESOURCE_NAMES, StationCost
 from adama.models.ship import DISTANCES, RATION_LEVELS, Ship
 from adama.models.station import Station, StationMode
@@ -286,6 +287,30 @@ def destroy_ship(galaxy: Galaxy, ship: Ship) -> list[Notice]:
 	for other in galaxy.ships_at(ship.coordinates):
 		notices.append(
 			Notice(HANGAR, f"**The {ship.name} has been destroyed.**", other.id)
+		)
+	people = [
+		p
+		for p in galaxy.players.values()
+		if p.location == ship.id
+		or (p.location == LOCATION_BRIG and galaxy.brig_ship == ship.id)
+	]
+	if people:
+		names = ", ".join(
+			f"<@{p.discord_user_id}>" + (" (in the brig)" if p.brigged else "")
+			for p in people
+		)
+		notices.append(
+			Notice(
+				CONTROL,
+				f"The {ship.name} has been destroyed with players aboard: {names}. "
+				"They can only use /control until you move them.",
+				claim=True,
+				links=((HANGAR, ship.id),),
+			)
+		)
+	else:
+		notices.append(
+			Notice(CONTROL, f"The {ship.name} has been destroyed. Nobody was aboard.")
 		)
 	for coords in galaxy.coordinates.values():
 		if coords.locked_down and coords.commanding_ship == ship.id:

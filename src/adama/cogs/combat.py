@@ -381,8 +381,10 @@ class CombatCommands(commands.Cog):
 				fleet=True,
 			)
 
-	@unit.command(
-		name="damage", description="Damage a unit (destroys it if already damaged)"
+	@app_commands.command(
+		name="damageunit",
+		description="Damage a unit (destroys it if already damaged)",
+		extras=GM,
 	)
 	@app_commands.autocomplete(unit=any_unit_autocomplete)
 	@control_only()
@@ -422,9 +424,10 @@ class CombatCommands(commands.Cog):
 	async def unit_exhaust(self, interaction: discord.Interaction, unit: str):
 		await self._edit_unit(interaction, editing.set_unit_exhausted, unit, True)
 
-	@unit.command(
-		name="teleport",
+	@app_commands.command(
+		name="teleportunit",
 		description="Move a unit to any ship or shuttle (keeps its affiliation)",
+		extras=GM,
 	)
 	@app_commands.autocomplete(
 		unit=any_unit_autocomplete, destination=ship_or_shuttle_autocomplete

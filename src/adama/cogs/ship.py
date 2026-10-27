@@ -457,42 +457,6 @@ class ShipCommands(commands.Cog):
 			await self.finish(interaction, galaxy, notices, "Repaired.")
 
 	@app_commands.command(
-		name="exhauststation",
-		description="Stop a station being used again this turn",
-		extras=GM,
-	)
-	@app_commands.autocomplete(station=station_id_autocomplete)
-	@control_only()
-	async def exhauststation(self, interaction: discord.Interaction, station: str):
-		await self._set_exhausted(interaction, station, True)
-
-	@app_commands.command(
-		name="refreshstation",
-		description="Let a station be used again this turn",
-		extras=GM,
-	)
-	@app_commands.autocomplete(station=station_id_autocomplete)
-	@control_only()
-	async def refreshstation(self, interaction: discord.Interaction, station: str):
-		await self._set_exhausted(interaction, station, False)
-
-	async def _set_exhausted(
-		self, interaction: discord.Interaction, station_id: str, exhausted: bool
-	) -> None:
-		assert interaction.guild is not None
-		async with self.galaxies.lock(interaction.guild.id):
-			galaxy = self.galaxy(interaction)
-			station = st_rules.set_exhausted(galaxy, station_id, exhausted)
-			state = "exhausted" if exhausted else "ready"
-			await self.finish(
-				interaction,
-				galaxy,
-				[],
-				f"`{station.id}` {station.name} is now {state}.",
-				fleet=False,
-			)
-
-	@app_commands.command(
 		name="startriot",
 		description="Start a riot in a station, or a random one on a ship",
 		extras=GM,
