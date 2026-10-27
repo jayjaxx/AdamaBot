@@ -91,7 +91,6 @@ GM_COMMANDS = {
 	"shutdown",
 	"subcoords",
 	"clearsubbedcoords",
-	"teleportship",
 	"isolate",
 	"unisolate",
 	"shuttle",
@@ -163,15 +162,22 @@ def test_help_lists():
 	text = help_list("players")
 	assert text.startswith("**ADAMA commands**\n")
 	assert "`/jump` *(bridge, crew only)*" in text
-	assert "`/load` *(hangar, crew only)*" in text
-	assert "`/travel` *(hangar)*" in text
+	assert "`/load` *(hangar or bridge, crew only)*" in text
+	assert "`/travel` *(hangar or bridge)*" in text
 	assert "`/clearance` *(hangar or bridge, crew only)*" in text
 	assert "`/roll` Roll" in text
 	assert "summoncouncil" not in text and "President" not in text
 	assert "/endturn" not in text and "/help" in text
 
+	cog = bot.get_cog("GeneralCommands")
 	president = Player(id="0001", discord_user_id=1, president=True)
-	text = help_list("players", president)
+	nobody = SimpleNamespace(roles=[])
+	assert cog.offices_held(president, nobody) == {"president"}
+	# Before /startgame (or with the role given by hand) the Discord role counts.
+	responder_role = SimpleNamespace(roles=[SimpleNamespace(name="First Responder")])
+	assert cog.offices_held(None, responder_role) == {"first_responder"}
+	assert cog.offices_held(None, nobody) == set()
+	text = help_list("players", {"president"})
 	assert "\n\n**President commands**\n`/gag` stop a permitted player" in text
 	assert text.count("summoncouncil") == 1
 
@@ -196,6 +202,9 @@ def test_groups_are_control_only():
 	shuttle = bot.tree.get_command("shuttle")
 	assert isinstance(shuttle, discord.app_commands.Group)
 	assert {c.name for c in shuttle.commands} == {"conjure", "destroy", "teleport"}
+	unit = bot.tree.get_command("unit")
+	assert isinstance(unit, discord.app_commands.Group)
+	assert "teleport" in {c.name for c in unit.commands}
 	for group in ("shuttle", "card", "unit", "station", "ship"):
 		command = bot.tree.get_command(group)
 		assert isinstance(command, discord.app_commands.Group)
@@ -483,3 +492,71 @@ def test_shutdown_pings_everyone_only_during_a_game():
 	for state in (STATE_IDLE, STATE_ENDED):
 		text = shutdown_alert(Galaxy(1, state=state))
 		assert "@everyone" not in text and "shutting down" in text
+
+
+def test_every_call_links_to_where_the_problem_is():
+	"""Each claimable control alert in the rules names the channel(s) it's about."""
+	import ast
+
+	rules = ROOT / "src" / "adama" / "rules"
+	missing = []
+	for path in rules.glob("*.py"):
+		for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+			if not (
+				isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Notice"
+			):
+				continue
+			names = {k.arg for k in node.keywords}
+			if "claim" in names and "links" not in names:
+				missing.append(f"{path.name}:{node.lineno}")
+	assert not missing
+
+
+def test_link_line_turns_links_into_channel_mentions():
+	from adama import channels as ch
+	from adama.discord_ops import channel_link, link_line
+	from adama.rules import BRIDGE, COMBAT, CONTROL, COUNCIL, PDA, Notice
+
+	galaxy = Galaxy(1)
+	galaxy.players["0001"] = Player(id="0001", discord_user_id=9, pda_channel_id=31)
+	galaxy.discord.ship_channels["0100"] = {ch.SHIP_BRIDGE: 32}
+	galaxy.discord.channels[ch.COUNCIL_CHAMBERS] = 33
+	galaxy.get_or_create_coordinates("12903").combat_text_channel_id = 34
+	guild = SimpleNamespace(
+		get_channel=lambda id: SimpleNamespace(mention=f"<#{id}>") if id else None
+	)
+	notice = Notice(
+		CONTROL,
+		"call",
+		claim=True,
+		links=(
+			(PDA, "0001"),
+			(BRIDGE, "0100"),
+			(COUNCIL, ""),
+			(COMBAT, "12903"),
+			(PDA, "0001"),
+		),
+	)
+	assert link_line(guild, galaxy, notice) == "\n📍 <#31> <#32> <#33> <#34>"
+	assert link_line(guild, galaxy, Notice(CONTROL, "log")) == ""
+	assert channel_link(SimpleNamespace(mention="<#5>")) == "\n📍 <#5>"
+	assert channel_link(None) == ""
+
+
+def test_back_online_alert_only_during_a_game():
+	from adama.bot import back_online_alert
+	from adama.models.galaxy import (
+		STATE_ENDED,
+		STATE_IDLE,
+		STATE_IN_PROGRESS,
+		STATE_INITIALIZING,
+	)
+
+	for state in (STATE_INITIALIZING, STATE_IN_PROGRESS):
+		text = back_online_alert(Galaxy(1, state=state), False)
+		assert text is not None and text.startswith("@everyone **ADAMA is back online")
+		assert "cancelled" not in text
+	text = back_online_alert(Galaxy(1, state=STATE_IN_PROGRESS), True)
+	assert text is not None and "cancelled" in text
+	for state in (STATE_IDLE, STATE_ENDED):
+		assert back_online_alert(Galaxy(1, state=state), True) is None

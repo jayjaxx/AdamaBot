@@ -276,6 +276,9 @@ def test_combat_channels_per_coordinates():
 	assert 9002 not in player_access(galaxy, crew)
 	assert player_access(galaxy, observer)[9001] == READ_ONLY
 	assert player_access(galaxy, observer)[9002] == LISTEN
+	with pytest.raises(GameError, match="should already see the combat channels"):
+		rules.travel(galaxy, responder, "combat")
+	coords.commanding_ship = "1000"  # once someone else commands, they travel in
 	rules.travel(galaxy, responder, "combat")
 	access = player_access(galaxy, responder)
 	assert access[9001] == POST

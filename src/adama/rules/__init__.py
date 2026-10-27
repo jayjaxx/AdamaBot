@@ -10,6 +10,8 @@ CONTROL = "control"
 BROADCAST = "broadcast"
 BRIG = "brig"
 COUNCIL = "council"
+# Only used in Notice.links: the combat text channel (id = the coordinates).
+COMBAT = "combat"
 
 
 def sentence(text: str) -> str:
@@ -36,10 +38,12 @@ class Notice:
 	(#council-chambers).
 	`ping` mentions the control role (CONTROL) or the PDA's owner (PDA). `claim` (CONTROL only) marks a
 	call that needs a controller to act: the bot salutes it, and the first controller
-	to salute takes it."""
+	to salute takes it. `links` are (target, id) pairs of channels the alert is
+	about, linked under it (e.g. the bridge with the problem, or a player's PDA)."""
 
 	target: str
 	text: str
 	id: str = ""
 	ping: bool = False
 	claim: bool = False
+	links: tuple[tuple[str, str], ...] = ()

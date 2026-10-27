@@ -7,6 +7,7 @@ from adama.models.player import LOCATION_COMBAT, Player
 from adama.models.ship import DISTANCES, Ship
 from adama.rules import (
 	BRIDGE,
+	COMBAT,
 	CONTROL,
 	HANGAR,
 	PDA,
@@ -98,6 +99,7 @@ def start_jump(galaxy: Galaxy, ship: Ship) -> tuple[Jump, list[Notice]]:
 					CONTROL,
 					f"The {ship.name} tried to jump without enough fuel ({ship.resources.fuel} of {fuel}).",
 					claim=True,
+					links=((BRIDGE, ship.id),),
 				)
 			],
 		)
@@ -169,7 +171,7 @@ def _left_lockdown_alert(
 			f"aboard were left behind in combat ({names(left)}). Use /transfercommand "
 			"to give command to another ship."
 		)
-	return Notice(CONTROL, text, claim=True)
+	return Notice(CONTROL, text, claim=True, links=((COMBAT, origin),))
 
 
 def _leave_commanders_behind(galaxy: Galaxy, ship: Ship, origin: str) -> list[Player]:
@@ -191,7 +193,7 @@ def _leave_commanders_behind(galaxy: Galaxy, ship: Ship, origin: str) -> list[Pl
 
 
 def move_ship(galaxy: Galaxy, ship: Ship, destination: str, reason: str) -> ShipMoved:
-	"""Moves a ship with everything aboard it. Shared by jumps and /teleportship."""
+	"""Moves a ship with everything aboard it. Shared by jumps and /ship teleport."""
 	moved = ShipMoved(cancel_launches_for_ship(galaxy, ship, reason))
 	origin = ship.coordinates
 	leaving = galaxy.coordinates.get(origin)
@@ -247,6 +249,7 @@ def complete_jump(galaxy: Galaxy, jump: Jump) -> ShipMoved | None:
 					CONTROL,
 					f"The {ship.name}'s jump failed: not enough fuel ({ship.resources.fuel} of {fuel}).",
 					claim=True,
+					links=((BRIDGE, ship.id),),
 				),
 			]
 		)
@@ -264,7 +267,7 @@ def complete_jump(galaxy: Galaxy, jump: Jump) -> ShipMoved | None:
 
 
 def teleport_ship(galaxy: Galaxy, ship: Ship, coordinates: str) -> ShipMoved:
-	"""/teleportship: no fuel and no Jump Drive needed."""
+	"""/ship teleport: no fuel and no Jump Drive needed."""
 	coordinates = check_coordinates(coordinates)
 	if ship.coordinates == coordinates:
 		raise GameError(f"The {ship.name} is already at {coordinates}.")

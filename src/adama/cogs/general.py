@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Set as AbstractSet
 import random
 
 import discord
@@ -14,6 +15,7 @@ from adama.models.player import LOCATION_COMBAT, Player
 from adama.perms import UserError, is_gm
 from adama.status import (
 	bridge_status,
+	brig_status,
 	fleet_list,
 	hangar_status,
 	location_name,
@@ -90,9 +92,16 @@ class GeneralCommands(commands.Cog):
 				await reply(interaction, pda_status(galaxy, owner))
 			return
 
+		if interaction.channel_id == galaxy.discord.channels.get(ch.BRIG):
+			# Only prisoners, people aboard the brig ship and control can see #brig.
+			await reply(interaction, brig_status(galaxy), ephemeral=True)
+			return
+
 		found = ship_for_channel(galaxy, interaction.channel_id)
 		if found is None:
-			raise UserError("Run /status in a ship's hangar or bridge, or in your PDA.")
+			raise UserError(
+				"Run /status in a ship's hangar or bridge, the brig, or your PDA."
+			)
 		ship, kind = found
 		if not gm:
 			if player is None:
@@ -190,15 +199,33 @@ class GeneralCommands(commands.Cog):
 				lines.append(f"`/{s.qualified_name}`{tag} {description}")
 		return lines
 
-	def command_list(self, which: str, player: Player | None = None) -> str:
+	def offices_held(
+		self, player: Player | None, member: discord.Member | discord.User
+	) -> set[str]:
+		"""Offices from the character's flags or, as before /startgame or if the role
+		was given by hand, from the member's Discord roles."""
+		role_names = {r.name for r in getattr(member, "roles", [])}
+		role_of = {
+			"president": self.roles.PRESIDENT,
+			"first_responder": self.roles.FIRST_RESPONDER,
+		}
+		return {
+			office
+			for office, (_, holds) in OFFICES.items()
+			if (player is not None and holds(player)) or role_of[office] in role_names
+		}
+
+	def command_list(self, which: str, held: AbstractSet[str] = frozenset()) -> str:
 		"""The /help text. `which` is a HELP_LISTS value; the player list adds the
-		offices `player` holds. Each office and control get their own header."""
+		offices in `held`. Each office and control get their own header."""
 		sections: list[tuple[str, list[str]]] = []
 		if which in (HELP_PLAYERS, HELP_ALL):
 			sections.append(("ADAMA commands", self._lines(gm=False)))
-		for office, (header, holds) in OFFICES.items():
-			held = which == HELP_PLAYERS and player is not None and holds(player)
-			if held or which in (office, HELP_ALL):
+		for office, (header, _) in OFFICES.items():
+			if (which == HELP_PLAYERS and office in held) or which in (
+				office,
+				HELP_ALL,
+			):
 				sections.append(
 					(f"{header} commands", self._lines(gm=False, office=office))
 				)
@@ -221,7 +248,7 @@ class GeneralCommands(commands.Cog):
 		if which != HELP_PLAYERS and not is_gm(interaction.user, self.roles):
 			raise UserError("Only control can pick a different command list.")
 		player = galaxy.player_by_user(interaction.user.id)
-		text = self.command_list(which, player)
+		text = self.command_list(which, self.offices_held(player, interaction.user))
 		# The full list is several messages: answer Discord before sending them.
 		await interaction.response.defer(ephemeral=True)
 		pda = guild.get_channel(galaxy.discord.pdas.get(interaction.user.id, 0))

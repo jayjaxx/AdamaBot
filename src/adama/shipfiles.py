@@ -80,6 +80,7 @@ SHIP_SCHEMA = {
 	"water_ration_level": RATION_LEVEL,
 	"isolated": BOOL,
 	"destroyed": BOOL,
+	"combat_ship": BOOL,
 	"jumping": BOOL,
 	"morale_level": MORALE,
 	"morale_rolled_this_turn": BOOL,

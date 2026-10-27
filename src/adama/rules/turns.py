@@ -7,7 +7,11 @@ from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import RATION_LEVELS, Ship
 from adama.rules import BRIDGE, BROADCAST, CONTROL, PDA, GameError, Notice
-from adama.rules.players import healing_ship, start_of_turn_reminder
+from adama.rules.players import (
+	START_OF_TURN_BROADCAST,
+	healing_ship,
+	start_of_turn_reminder,
+)
 from adama.rules.stations import AEGIS, random_riot
 
 RATION_MODIFIERS = {
@@ -143,7 +147,12 @@ def morale_roll(
 	riot_text = ""
 	if ship.morale_level == 0:
 		notices.append(
-			Notice(CONTROL, f"The {ship.name}'s morale has reached **0**.", claim=True)
+			Notice(
+				CONTROL,
+				f"The {ship.name}'s morale has reached **0**.",
+				claim=True,
+				links=((BRIDGE, ship.id),),
+			)
 		)
 		riot_text = "Morale is 0: control has been alerted, and there is no riot roll."
 	elif riot_threshold(ship.morale_level):
@@ -218,7 +227,8 @@ def end_turn(galaxy: Galaxy) -> EndTurn:
 	notices.append(
 		Notice(
 			BROADCAST,
-			f"**Turn {galaxy.turn_number} has ended.** Ships with a passive income or loss should alert control.",
+			f"**Turn {galaxy.turn_number} has ended.** Ships with a passive income or "
+			f"loss should alert control. {START_OF_TURN_BROADCAST}",
 		)
 	)
 	galaxy.late_activations.clear()
@@ -283,7 +293,10 @@ def add_morale(galaxy: Galaxy, target: str, amount: int) -> list[Notice]:
 		if ship.morale_level == 0:
 			notices.append(
 				Notice(
-					CONTROL, f"The {ship.name}'s morale has reached **0**.", claim=True
+					CONTROL,
+					f"The {ship.name}'s morale has reached **0**.",
+					claim=True,
+					links=((BRIDGE, ship.id),),
 				)
 			)
 	return notices

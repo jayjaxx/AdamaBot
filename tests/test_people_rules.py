@@ -270,3 +270,47 @@ def test_wolves_are_secret():
 		g, [pl.LobbyMember(42, frozenset({"Aegis Crew"}))], RolesConfig()
 	)
 	assert players[0].wolf and not g.lobby_wolves
+
+
+def test_control_can_stand_in_for_the_president():
+	g = galaxy()
+	guest = aboard(g, "0300", "0002")  # anywhere: control needn't be in the chambers
+	g.ships["0300"].coordinates = g.ships[g.council_chambers_ship].coordinates
+	guest.location = g.council_chambers_ship
+	assert not any(n.target == CONTROL for n in council.summon(g, None))
+	change = council.seal(g, None)
+	assert g.council_sealed and "Control sealed" in change.notices[0].text
+	council.permit(g, None, guest)
+	assert guest.permitted
+	council.gag(g, None, guest)
+	assert not guest.permitted
+	council.unseal(g, None)
+	council.relocate(g, None, g.ships["0100"])
+	assert g.council_chambers_ship == "0100"
+
+
+def test_people_aboard_the_brig_ship_can_use_the_brig():
+	from adama.access import IMPERMANENT, POST, VOICE
+
+	g = galaxy()
+	g.discord.channels[ch.BRIG], g.discord.channels[ch.VC_BRIG] = 61, 62
+	guard = aboard(g, "0100")  # the brig is on the Aegis
+	visitor = aboard(g, "0100", "0002", crew=False)
+	elsewhere = aboard(g, "0200", "0003")
+	assert player_access(g, guard)[61] == IMPERMANENT
+	assert player_access(g, visitor)[62] == VOICE
+	assert 61 not in player_access(g, elsewhere)
+	prisoner = aboard(g, "0200", "0004")
+	chars.brig(g, prisoner)
+	assert player_access(g, prisoner)[61] == POST  # prisoners keep the history
+	chars.move_brig(g, g.ships["0200"])
+	assert 61 not in player_access(g, guard) and 61 in player_access(g, elsewhere)
+
+
+def test_brig_status_lists_prisoners():
+	from adama.status import brig_status
+
+	g = galaxy()
+	assert "aboard the Aegis" in brig_status(g) and "nobody" in brig_status(g)
+	chars.brig(g, aboard(g, "0200", "0007"))
+	assert "**Currently brigged:** <@7>" in brig_status(g)

@@ -8,12 +8,12 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
-from adama.cogs._shared import WHERE_HANGAR, player_of, ship_named
+from adama.cogs._shared import WHERE_SHIP, player_of, ship_named
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_COMBAT, Player
 from adama.perms import UserError, control_only
 from adama.rules import players as rules
-from adama.rules.players import current_ship
+from adama.rules.players import combat_coordinates, current_ship
 
 logger = logging.getLogger()
 
@@ -26,16 +26,18 @@ PDA_WATCH = discord.PermissionOverwrite(
 def in_departure_channel(
 	galaxy: Galaxy, player: Player, channel_id: int | None
 ) -> bool:
-	"""Whether the command was run in the hangar of the player's ship, or (in combat) in
-	their combat channel."""
+	"""Whether the command was run in the hangar or bridge of the player's ship, or (in
+	combat) in their combat channel."""
 	ship = current_ship(galaxy, player)
 	if ship is None:
 		return False
 	if player.location == LOCATION_COMBAT:
-		coords = galaxy.coordinates.get(ship.coordinates)
+		coords = galaxy.coordinates.get(combat_coordinates(galaxy, player) or "")
 		return coords is not None and coords.combat_text_channel_id == channel_id
-	return (
-		galaxy.discord.ship_channels.get(ship.id, {}).get(ch.SHIP_HANGAR) == channel_id
+	created = galaxy.discord.ship_channels.get(ship.id, {})
+	return channel_id is not None and channel_id in (
+		created.get(ch.SHIP_HANGAR),
+		created.get(ch.SHIP_BRIDGE),
 	)
 
 
@@ -71,7 +73,7 @@ class PlayerCommands(commands.Cog):
 
 	@app_commands.command(
 		name="travel",
-		extras=WHERE_HANGAR,
+		extras=WHERE_SHIP,
 		description="Move to another ship at your coordinates (or into combat)",
 	)
 	@app_commands.autocomplete(destination=destination_autocomplete)
@@ -82,7 +84,9 @@ class PlayerCommands(commands.Cog):
 			galaxy = self.galaxies.get(guild.id)
 			player = player_of(galaxy, interaction.user)
 			if not in_departure_channel(galaxy, player, interaction.channel_id):
-				raise UserError("Run /travel in the hangar of the ship you're aboard.")
+				raise UserError(
+					"Run /travel in the hangar or bridge of the ship you're aboard."
+				)
 			notices = rules.travel(galaxy, player, destination)
 			await interaction.response.defer(ephemeral=True)
 			self.galaxies.save(galaxy)

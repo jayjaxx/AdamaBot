@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import Ship
-from adama.rules import CONTROL, PDA, GameError, Notice
+from adama.rules import CONTROL, COUNCIL, PDA, GameError, Notice
 from adama.rules.players import mention
 
 PRESIDENT = "president"
@@ -22,9 +22,16 @@ class CouncilChange:
 	roles: list[tuple[Player, str, bool]] = field(default_factory=list)
 
 
-def _president(player: Player) -> None:
-	if not player.president:
+# The president's commands take `player` None when control runs them instead.
+
+
+def _president(player: Player | None) -> None:
+	if player is not None and not player.president:
 		raise GameError("Only the president can do this.")
+
+
+def _by(player: Player | None) -> str:
+	return mention(player) if player else "Control"
 
 
 def _chambers_ship(galaxy: Galaxy) -> Ship:
@@ -34,10 +41,10 @@ def _chambers_ship(galaxy: Galaxy) -> Ship:
 	return ship
 
 
-def _in_chambers(galaxy: Galaxy, player: Player) -> Ship:
+def _in_chambers(galaxy: Galaxy, player: Player | None) -> Ship:
 	_president(player)
 	ship = _chambers_ship(galaxy)
-	if player.location != ship.id:
+	if player is not None and player.location != ship.id:
 		raise GameError(f"You must be aboard the {ship.name}, where the chambers are.")
 	return ship
 
@@ -54,7 +61,7 @@ def _council(galaxy: Galaxy) -> list[Player]:
 	]
 
 
-def summon(galaxy: Galaxy, player: Player) -> list[Notice]:
+def summon(galaxy: Galaxy, player: Player | None) -> list[Notice]:
 	_president(player)
 	ship = _chambers_ship(galaxy)
 	notices = [
@@ -65,8 +72,15 @@ def summon(galaxy: Galaxy, player: Player) -> list[Notice]:
 		)
 		for member in _council(galaxy)
 	]
+	if player is None:
+		return notices  # control doesn't need telling it summoned the council
 	notices.append(
-		Notice(CONTROL, f"{mention(player)} has summoned the council.", claim=True)
+		Notice(
+			CONTROL,
+			f"{mention(player)} has summoned the council.",
+			claim=True,
+			links=((COUNCIL, ""),),
+		)
 	)
 	return notices
 
@@ -89,14 +103,13 @@ def relocate(galaxy: Galaxy, player: Player | None, ship: Ship) -> CouncilChange
 	change.notices.append(
 		Notice(
 			CONTROL,
-			f"{mention(player) if player else 'Control'} moved the council chambers "
-			f"to the {ship.name}.",
+			f"{_by(player)} moved the council chambers to the {ship.name}.",
 		)
 	)
 	return change
 
 
-def seal(galaxy: Galaxy, player: Player) -> CouncilChange:
+def seal(galaxy: Galaxy, player: Player | None) -> CouncilChange:
 	"""Everyone not on the council or permitted is removed and kept out until /unseal or
 	the end of the turn."""
 	ship = _in_chambers(galaxy, player)
@@ -104,12 +117,12 @@ def seal(galaxy: Galaxy, player: Player) -> CouncilChange:
 		raise GameError("The chambers are already sealed.")
 	galaxy.council_sealed = True
 	return CouncilChange(
-		[Notice(CONTROL, f"{mention(player)} sealed the council chambers.")],
+		[Notice(CONTROL, f"{_by(player)} sealed the council chambers.")],
 		_aboard(galaxy, ship.id),
 	)
 
 
-def unseal(galaxy: Galaxy, player: Player) -> CouncilChange:
+def unseal(galaxy: Galaxy, player: Player | None) -> CouncilChange:
 	ship = _in_chambers(galaxy, player)
 	if not galaxy.council_sealed:
 		raise GameError("The chambers aren't sealed.")
@@ -117,7 +130,7 @@ def unseal(galaxy: Galaxy, player: Player) -> CouncilChange:
 	return CouncilChange([], _aboard(galaxy, ship.id))
 
 
-def permit(galaxy: Galaxy, player: Player, target: Player) -> CouncilChange:
+def permit(galaxy: Galaxy, player: Player | None, target: Player) -> CouncilChange:
 	_in_chambers(galaxy, player)
 	if target.councillor or target.president:
 		raise GameError(f"{mention(target)} is on the council and may always speak.")
@@ -130,7 +143,7 @@ def permit(galaxy: Galaxy, player: Player, target: Player) -> CouncilChange:
 	)
 
 
-def gag(galaxy: Galaxy, player: Player, target: Player) -> CouncilChange:
+def gag(galaxy: Galaxy, player: Player | None, target: Player) -> CouncilChange:
 	_in_chambers(galaxy, player)
 	if target.councillor or target.president:
 		raise GameError("Members of the council can't be gagged.")

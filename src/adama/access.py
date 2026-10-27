@@ -110,6 +110,11 @@ def player_access(galaxy: Galaxy, player: Player) -> dict[int, Access]:
 			give_ship(ch.SHIP_BRIDGE, IMPERMANENT)
 			give_ship(ch.SHIP_VC_BRIDGE, VOICE)
 
+		if galaxy.brig_ship == ship.id:
+			# Guards and visitors aboard can talk with the prisoners.
+			give(ch.BRIG, IMPERMANENT)
+			give(ch.VC_BRIG, VOICE)
+
 		if galaxy.council_chambers_ship == ship.id:
 			council = player.president or player.councillor
 			may_speak = council or player.permitted

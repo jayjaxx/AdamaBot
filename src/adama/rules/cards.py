@@ -118,7 +118,7 @@ def play(
 	else:
 		result = "You keep it."
 	return [
-		Notice(CONTROL, alert, ping=True, claim=True),
+		Notice(CONTROL, alert, ping=True, claim=True, links=((PDA, player.id),)),
 		Notice(
 			PDA,
 			f"You played **{card.name}**. Control has been alerted. {result}",

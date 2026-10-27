@@ -8,6 +8,7 @@
         "water_ration_level": "normal",
         "isolated": false,
         "destroyed": false,
+        "combat_ship": true,
         "jumping": false,
         "morale_level": 10,
         "morale_rolled_this_turn": false,

@@ -82,6 +82,7 @@ def wound(galaxy: Galaxy, player: Player) -> list[Notice]:
 			f"has no working Sickbay. Move them to one with /teleportplayer. Sickbays "
 			f"at their coordinates: {ships}.",
 			claim=True,
+			links=((PDA, player.id),),
 		),
 	]
 

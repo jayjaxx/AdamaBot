@@ -55,7 +55,10 @@ def pick_crew(
 		crew = available_crew(ship, keyword, own_only=True)
 		if len(crew) < amount:
 			raise GameError(
-				f'Not enough available crew matching "{keyword}": need {amount}, have {len(crew)}.'
+				f'Not enough available crew matching "{keyword}": need {amount}, have '
+				f"{len(crew)}. Only your ship's own crew is picked automatically: to use "
+				"crew from another ship, run the command again with choose_crew set to "
+				"true."
 			)
 		return crew[:amount]
 
@@ -197,6 +200,7 @@ def activate(
 				CONTROL,
 				f"{by} used `{station.id}` {station.name} on the {ship.name}: {station.description}",
 				claim=True,
+				links=((BRIDGE, ship.id),),
 			)
 		)
 	if station.startofturn and late is not None:
@@ -208,6 +212,7 @@ def activate(
 				f"{station.name} on the {ship.name} during the lockdown at "
 				f"{ship.coordinates}.",
 				claim=True,
+				links=((BRIDGE, ship.id),),
 			)
 		)
 	return notices
@@ -243,6 +248,7 @@ def repair(
 				CONTROL,
 				f"`{station.id}` {station.name} on the {ship.name} has been repaired (end its ongoing damage effects).",
 				claim=True,
+				links=((BRIDGE, ship.id),),
 			)
 		)
 	return notices
@@ -352,6 +358,7 @@ def damage(galaxy: Galaxy, target: str, rng: random.Random) -> list[Notice]:
 				CONTROL,
 				f"`{station.id}` {station.name} on the {ship.name} was damaged: {station.damaged_description}",
 				claim=True,
+				links=((BRIDGE, ship.id),),
 			)
 		)
 	return notices
@@ -372,6 +379,7 @@ def riot_at(ship: Ship, station: Station) -> list[Notice]:
 				CONTROL,
 				f"A riot broke out in the Cells `{station.id}` on the {ship.name} (Vulcan special rule).",
 				claim=True,
+				links=((BRIDGE, ship.id),),
 			)
 		)
 	return notices

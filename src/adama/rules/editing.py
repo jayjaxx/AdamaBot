@@ -6,7 +6,16 @@ from adama.models.resources import RESOURCE_NAMES, StationCost
 from adama.models.ship import DISTANCES, RATION_LEVELS, Ship
 from adama.models.station import Station, StationMode
 from adama.models.unit import Unit
-from adama.rules import BRIDGE, CONTROL, HANGAR, GameError, Notice
+from adama.rules import (
+	BRIDGE,
+	BRIG,
+	COMBAT,
+	CONTROL,
+	COUNCIL,
+	HANGAR,
+	GameError,
+	Notice,
+)
 from adama.rules.jumps import check_coordinates
 from adama.rules.shuttles import cancel_launches_for_ship
 from adama.rules.stations import destroy_or_damage_unit, find_station
@@ -73,6 +82,27 @@ def defect_unit(galaxy: Galaxy, unit_id: str, ship: Ship) -> str:
 	_, unit = find_unit(galaxy, unit_id)
 	unit.affiliation = ship.id
 	return f"`{unit.id}` {unit.name} is now affiliated with the {ship.name}."
+
+
+def teleport_unit(
+	galaxy: Galaxy, unit_id: str, destination: str
+) -> tuple[str, list[Notice]]:
+	"""/unit teleport: moves a unit to any ship or shuttle, keeping its affiliation."""
+	holder, unit = find_unit(galaxy, unit_id)
+	ship = galaxy.ship_by_name(destination)
+	found = galaxy.find_shuttle(destination)
+	if ship is not None:
+		units, where = ship.units, f"the {ship.name}"
+	elif found is not None:
+		units, where = found[1].units, found[1].name
+	else:
+		raise GameError(f'There is no ship or shuttle named "{destination}".')
+	if units is holder:
+		raise GameError(f"`{unit.id}` {unit.name} is already aboard {where}.")
+	del holder[unit.id]
+	units[unit.id] = unit
+	text = f"`{unit.id}` {unit.name} was moved to {where}."
+	return text, _unit_bridge(unit, text)
 
 
 def rename_unit(galaxy: Galaxy, unit_id: str, name: str) -> str:
@@ -266,23 +296,37 @@ def destroy_ship(galaxy: Galaxy, ship: Ship) -> list[Notice]:
 					f"{coords.coordinates}: use /transfercommand to give command to "
 					"another ship.",
 					claim=True,
+					links=((COMBAT, coords.coordinates),),
 				)
 			)
 	aboard = []
+	links = []
 	if galaxy.council_chambers_ship == ship.id:
 		aboard.append("the council chambers (move them with /relocate)")
+		links.append((COUNCIL, ""))
 	if galaxy.brig_ship == ship.id:
 		aboard.append("the brig (move it with /movebrig)")
+		links.append((BRIG, ""))
 	if aboard:
 		notices.append(
 			Notice(
 				CONTROL,
 				f"The destroyed {ship.name} holds " + " and ".join(aboard) + ".",
 				claim=True,
+				links=tuple(links),
 			)
 		)
 	ship.destroyed = True
 	return notices
+
+
+def set_combat_ship(ship: Ship, combat: bool) -> str:
+	if ship.combat_ship == combat:
+		raise GameError(
+			f"The {ship.name} is {'already' if combat else 'not'} a combat ship."
+		)
+	ship.combat_ship = combat
+	return f"The {ship.name} is {'now' if combat else 'no longer'} a combat ship."
 
 
 def set_ration_consumption(

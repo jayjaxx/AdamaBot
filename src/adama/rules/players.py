@@ -68,6 +68,14 @@ def combat_coordinates(galaxy: Galaxy, player: Player) -> str | None:
 	return origin.coordinates if origin else None
 
 
+# Ship channels hide history, so the bridge reminder is missed by anyone not looking
+# at the bridge when it's posted: the turn broadcast repeats it.
+START_OF_TURN_BROADCAST = (
+	"Crews: activate your start-of-turn stations promptly. Your bridge's /status "
+	"shows which are done."
+)
+
+
 def start_of_turn_reminder(ship: Ship) -> Notice | None:
 	stations = [s for s in ship.stations.values() if s.startofturn]
 	if not stations:
@@ -126,13 +134,19 @@ def start_game(
 					f"{mention(player)} has no crew role, so they have no location. "
 					"Place them with /addteam or /teleportplayer.",
 					claim=True,
+					links=((PDA, player.id),),
 				)
 			)
 
 	galaxy.lobby_wolves.clear()
 	galaxy.state = STATE_IN_PROGRESS
 	galaxy.turn_number = 1
-	notices.append(Notice(BROADCAST, "**The game has started!** Turn 1 begins now."))
+	notices.append(
+		Notice(
+			BROADCAST,
+			f"**The game has started!** Turn 1 begins now. {START_OF_TURN_BROADCAST}",
+		)
+	)
 	for ship in galaxy.ships.values():
 		reminder = start_of_turn_reminder(ship)
 		if reminder is not None:
@@ -218,6 +232,19 @@ def travel(galaxy: Galaxy, player: Player, destination: str) -> list[Notice]:
 	if destination.casefold() == LOCATION_COMBAT:
 		if in_combat:
 			raise GameError("You're already in combat.")
+		commanded = [
+			c.coordinates
+			for c in galaxy.coordinates.values()
+			if c.locked_down
+			and c.commanding_ship == player.location
+			and player.location in player.crew_affiliations
+		]
+		if player.first_responder and commanded:
+			raise GameError(
+				f"You're crew of the {origin.name}, which commands the lockdown at "
+				f"{commanded[0]}: you should already see the combat channels while "
+				"aboard, so there's no need to travel to combat."
+			)
 		if not (coords.locked_down and player.first_responder):
 			raise GameError(
 				"Combat can only be entered by first responders during a lockdown."

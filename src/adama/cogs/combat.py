@@ -4,12 +4,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
 from adama.cogs._shared import (
+	HANGAR_OR_BRIDGE,
 	FIRST_RESPONDER_ONLY,
-	WHERE_HANGAR_UNIT_CREW,
+	WHERE_SHIP,
+	WHERE_SHIP_UNIT_CREW,
 	choices,
 	player_of,
 	ship_for_channel,
@@ -99,6 +100,17 @@ class CombatCommands(commands.Cog):
 		]
 		return choices(values, current)
 
+	async def ship_or_shuttle_autocomplete(
+		self, interaction: discord.Interaction, current: str
+	):
+		galaxy = self.galaxy(interaction)
+		values = [(s.name, s.name) for s in galaxy.ships.values()]
+		values += [
+			(f"{sh.name} (shuttle at {s.name})", sh.name)
+			for s, sh in galaxy.iter_shuttles()
+		]
+		return choices(values, current)
+
 	async def any_unit_autocomplete(
 		self, interaction: discord.Interaction, current: str
 	):
@@ -115,12 +127,16 @@ class CombatCommands(commands.Cog):
 		self, interaction: discord.Interaction, current: str
 	):
 		galaxy, ship = self.galaxy(interaction), self._channel_ship(interaction)
-		units = [u for u in ship.units.values() if not u.exhausted] if ship else []
-		return choices([(unit_label(galaxy, u), u.id) for u in units], current)
+		movable = self._may_move(interaction, galaxy)
+		units = [u for u in (ship.units.values() if ship else []) if not u.exhausted]
+		return choices(
+			[(unit_label(galaxy, u), u.id) for u in units if movable(u)], current
+		)
 
 	async def shuttle_unit_autocomplete(
 		self, interaction: discord.Interaction, current: str
 	):
+		# Any unit may be unloaded, whatever its affiliation.
 		galaxy, ship = self.galaxy(interaction), self._channel_ship(interaction)
 		values = [
 			(f"{unit_label(galaxy, u)} on {shuttle.name}", u.id)
@@ -128,6 +144,15 @@ class CombatCommands(commands.Cog):
 			for u in shuttle.units.values()
 		]
 		return choices(values, current)
+
+	def _may_move(self, interaction: discord.Interaction, galaxy: Galaxy):
+		"""Which units the user may load: control any, players only those of ships
+		they're crew of (so nobody else learns what's aboard)."""
+		if self.gm(interaction):
+			return lambda unit: True
+		player = galaxy.player_by_user(interaction.user.id)
+		crews = set(player.crew_affiliations) if player else set()
+		return lambda unit: unit.affiliation in crews
 
 	async def docked_autocomplete(self, interaction: discord.Interaction, current: str):
 		ship = self._channel_ship(interaction)
@@ -282,7 +307,7 @@ class CombatCommands(commands.Cog):
 	def _hangar(self, interaction: discord.Interaction) -> tuple[Galaxy, Ship]:
 		galaxy = self.galaxy(interaction)
 		ship = ship_here(
-			galaxy, interaction, ch.SHIP_HANGAR, gm=self.gm(interaction), crew=False
+			galaxy, interaction, HANGAR_OR_BRIDGE, gm=self.gm(interaction), crew=False
 		)
 		return galaxy, ship
 
@@ -291,7 +316,7 @@ class CombatCommands(commands.Cog):
 
 	@app_commands.command(
 		name="loadunit",
-		extras=WHERE_HANGAR_UNIT_CREW,
+		extras=WHERE_SHIP_UNIT_CREW,
 		description="Load a unit onto a docked shuttle",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -311,7 +336,7 @@ class CombatCommands(commands.Cog):
 
 	@app_commands.command(
 		name="unloadunit",
-		extras=WHERE_HANGAR_UNIT_CREW,
+		extras=WHERE_SHIP,
 		description="Unload a unit from a docked shuttle onto this ship",
 	)
 	@app_commands.autocomplete(unit=shuttle_unit_autocomplete)
@@ -396,6 +421,19 @@ class CombatCommands(commands.Cog):
 	@control_only()
 	async def unit_exhaust(self, interaction: discord.Interaction, unit: str):
 		await self._edit_unit(interaction, editing.set_unit_exhausted, unit, True)
+
+	@unit.command(
+		name="teleport",
+		description="Move a unit to any ship or shuttle (keeps its affiliation)",
+	)
+	@app_commands.autocomplete(
+		unit=any_unit_autocomplete, destination=ship_or_shuttle_autocomplete
+	)
+	@control_only()
+	async def unit_teleport(
+		self, interaction: discord.Interaction, unit: str, destination: str
+	):
+		await self._edit_unit(interaction, editing.teleport_unit, unit, destination)
 
 	@unit.command(name="refresh", description="Let a unit be used again this turn")
 	@app_commands.autocomplete(unit=any_unit_autocomplete)

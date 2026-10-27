@@ -94,6 +94,8 @@ class Ship:
 	water_ration_level: str = "normal"
 	isolated: bool = False
 	destroyed: bool = False
+	# Checked for first responders when its coordinates go into lockdown.
+	combat_ship: bool = False
 	jumping: bool = False
 	morale_level: int = 10
 	morale_rolled_this_turn: bool = False
@@ -128,6 +130,7 @@ class Ship:
 			"water_ration_level": self.water_ration_level,
 			"isolated": self.isolated,
 			"destroyed": self.destroyed,
+			"combat_ship": self.combat_ship,
 			"jumping": self.jumping,
 			"morale_level": self.morale_level,
 			"morale_rolled_this_turn": self.morale_rolled_this_turn,
@@ -167,6 +170,8 @@ class Ship:
 			water_ration_level=data["water_ration_level"],
 			isolated=data["isolated"],
 			destroyed=data["destroyed"],
+			# Games saved before the field existed.
+			combat_ship=data.get("combat_ship", False),
 			jumping=data["jumping"],
 			morale_level=data["morale_level"],
 			morale_rolled_this_turn=data["morale_rolled_this_turn"],

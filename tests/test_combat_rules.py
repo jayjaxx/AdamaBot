@@ -29,8 +29,11 @@ def test_lockdown_stops_travel_and_summons_responders():
 	assert coords.locked_down and coords.commanding_ship == AEGIS and not g.launches
 	pings = {n.id: n for n in change.notices if n.target == PDA}
 	assert set(pings) == {"0001", "0003"} and all(n.ping for n in pings.values())
-	assert all("/travel combat" in n.text for n in pings.values())
+	assert "/travel combat" in pings["0003"].text
+	assert "/travel combat" not in pings["0001"].text
 	assert "already see" in pings["0001"].text and "already" not in pings["0003"].text
+	with pytest.raises(GameError, match="should already see the combat channels"):
+		pl.travel(g, commander, "combat")
 	at_aegis = {n.id for n in change.notices if n.target in (HANGAR, BRIDGE)}
 	assert {n.target for n in change.notices if n.id == AEGIS} >= {HANGAR, BRIDGE}
 	assert at_aegis == {s.id for s in g.ships_at("12903")}
@@ -155,8 +158,11 @@ def test_lockdown_readiness_report():
 	report = next(n for n in change.notices if "can't /travel combat" in n.text)
 	assert report.claim and "<@1>" not in report.text
 	assert "<@2> (wounded)" in report.text and "<@3> (aboard the" in report.text
-	assert "Ships with no first responder in their crew:" in report.text
-	assert "Aegis" in report.text and "Dione," not in report.text
+	assert "Combat ships here with no first responder in their crew:" in report.text
+	# Only combat ships at the coordinates: the Dione has one, the Lucas isn't a
+	# combat ship, and the Icebreaker (moved away) isn't here.
+	assert "Aegis" in report.text and "Dione" not in report.text
+	assert "Lucas" not in report.text and "Icebreaker." not in report.text
 
 
 def test_destroying_the_commanding_ship_alerts_control():
@@ -174,7 +180,7 @@ def test_combat_players_whose_ship_left_land_on_the_commanding_ship():
 	aegis, dione = g.ships[AEGIS], g.ships["0200"]
 	fighter = aboard(g, "0200", "0002")
 	fighter.first_responder = True
-	stayer = aboard(g, AEGIS, "0003")
+	stayer = aboard(g, "1000", "0003")  # the Salvador stays at the combat
 	stayer.first_responder = True
 	combat.lockdown(g, "12903", aegis)
 	pl.travel(g, fighter, "combat")
@@ -182,7 +188,7 @@ def test_combat_players_whose_ship_left_land_on_the_commanding_ship():
 	jumps.teleport_ship(g, dione, "55555")
 
 	change = combat.end_lockdown(g, "12903")
-	assert fighter.location == AEGIS and stayer.location == AEGIS
+	assert fighter.location == AEGIS and stayer.location == "1000"
 	alert = next(n for n in change.notices if n.target == CONTROL and n.claim)
 	assert "<@2>" in alert.text and "Dione Crew" in alert.text
 	assert "<@3>" not in alert.text  # their ship never left
@@ -227,7 +233,7 @@ def test_loading_units_onto_shuttles():
 		combat.load_unit(g, visitor, aegis, unit_id, "Cyclops")
 	combat.load_unit(g, crew, aegis, unit_id, "Cyclops")
 	assert unit_id in aegis.shuttles["0101"].units
-	combat.unload_unit(g, None, aegis, unit_id)  # control
+	combat.unload_unit(g, visitor, aegis, unit_id)  # anyone may unload any unit
 	assert unit_id in aegis.units
 	aegis.units[unit_id].exhausted = True
 	with pytest.raises(GameError, match="exhausted"):
@@ -360,3 +366,54 @@ def test_wounded_combat_players_are_left_for_control():
 	assert "<@1>" in alert.text and "wounded" in alert.text
 	pda = next(n for n in change.notices if n.target == PDA and n.id == fighter.id)
 	assert "Sickbay" in pda.text and "/control" in pda.text
+
+
+def test_start_of_turn_reminder_reaches_crews():
+	from adama.rules import BROADCAST
+	from adama.rules import stations as st
+	from adama.rules import turns
+	from adama.status import bridge_status
+
+	g = galaxy()
+	aegis = g.ships[AEGIS]
+	assert "Jump Drive** [start of turn ❌]" in bridge_status(g, aegis)
+	st.activate(aegis, "0126", None, None, "@me")
+	assert "Jump Drive** [exhausted, start of turn ✅]" in bridge_status(g, aegis)
+	turns.end_turn(g)
+	ended = turns.end_turn(g)  # the first is refused: no morale rolls
+	broadcast = next(n for n in ended.notices if n.target == BROADCAST)
+	assert "start-of-turn stations" in broadcast.text
+
+
+def test_unit_teleport_and_crew_errors():
+	from adama.rules import stations as st
+
+	g = galaxy()
+	aegis = g.ships[AEGIS]
+	unit_id = next(iter(aegis.units))
+	text, notices = editing.teleport_unit(g, unit_id, "Dione")
+	assert unit_id in g.ships["0200"].units and unit_id not in aegis.units
+	assert g.ships["0200"].units[unit_id].affiliation == AEGIS
+	assert notices[0].target == BRIDGE and notices[0].id == AEGIS
+	editing.teleport_unit(g, unit_id, "Cyclops")  # a shuttle
+	assert unit_id in aegis.shuttles["0101"].units
+	with pytest.raises(GameError, match="already aboard"):
+		editing.teleport_unit(g, unit_id, "Cyclops")
+	with pytest.raises(GameError, match="no ship or shuttle"):
+		editing.teleport_unit(g, unit_id, "Nowhere")
+	with pytest.raises(GameError, match="choose_crew set to true"):
+		st.pick_crew(aegis, "team", 99, None)
+
+
+def test_combat_ship_flag():
+	g = galaxy()
+	combat_ships = {s.name for s in g.ships.values() if s.combat_ship}
+	assert combat_ships == {"Aegis", "Dione", "Icebreaker", "Quellon", "Vulcan"}
+	lucas = g.ships["0600"]
+	editing.set_combat_ship(lucas, True)
+	assert lucas.combat_ship
+	with pytest.raises(GameError, match="already a combat ship"):
+		editing.set_combat_ship(lucas, True)
+	editing.set_combat_ship(lucas, False)
+	with pytest.raises(GameError, match="not a combat ship"):
+		editing.set_combat_ship(lucas, False)

@@ -8,7 +8,7 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.constants import DEFAULT_SHIPS_DIR
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, back_online_alert, reply
 from adama.models.galaxy import STATE_ENDED, STATE_IDLE, STATE_INITIALIZING, Galaxy
 from adama.models.ship import Ship
 from adama.perms import UserError, control_only, game_starter_only, is_gm
@@ -63,6 +63,8 @@ class GameCommands(commands.Cog):
 		self.container = bot.container
 		self.galaxies = bot.container.services.galaxy
 		self.roles = bot.config.roles
+		# Servers told the bot is back since this start-up.
+		self.back_online_sent: set[int] = set()
 
 	def galaxy(self, interaction: discord.Interaction) -> Galaxy:
 		assert interaction.guild is not None
@@ -350,7 +352,8 @@ class GameCommands(commands.Cog):
 		chat = ops.get_text(guild, self.galaxy(interaction), ch.CONTROL_CHAT)
 		message = await chat.send(
 			f"{interaction.user.mention} asks to become a controller. Approve with "
-			f"`/gm user:@{interaction.user.name}`.",
+			f"`/gm user:@{interaction.user.name}`."
+			+ ops.channel_link(interaction.channel),
 			allowed_mentions=discord.AllowedMentions.none(),
 		)
 		await ops.offer_call(message)
@@ -453,6 +456,24 @@ class GameCommands(commands.Cog):
 			stale = drop_stale_countdowns(galaxy)
 			self.galaxies.save(galaxy)
 			await ops.post_notices(guild, galaxy, stale)
+			# Once per start-up (not on every reconnect): tell everyone it's back.
+			if guild.id not in self.back_online_sent:
+				self.back_online_sent.add(guild.id)
+				await self.announce_back_online(guild, galaxy, bool(stale))
+
+	async def announce_back_online(
+		self, guild: discord.Guild, galaxy: Galaxy, cancelled: bool
+	) -> None:
+		text = back_online_alert(galaxy, cancelled)
+		broadcasts = ops.get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
+		if text is None or not isinstance(broadcasts, discord.TextChannel):
+			return
+		try:
+			await broadcasts.send(
+				text, allowed_mentions=discord.AllowedMentions(everyone=True)
+			)
+		except discord.HTTPException:
+			logger.warning("Couldn't post the back-online alert in %s", guild.name)
 
 	@commands.Cog.listener()
 	async def on_guild_available(self, guild: discord.Guild):
@@ -476,7 +497,8 @@ class GameCommands(commands.Cog):
 			message = await chat.send(
 				f"{payload.user.mention} ({payload.user.name}) left the server. Their "
 				f"character stays at {location_name(galaxy, player)}; if they rejoin "
-				"they get their roles and channels back.",
+				"they get their roles and channels back."
+				+ ops.channel_link(guild.get_channel(player.pda_channel_id or 0)),
 				allowed_mentions=discord.AllowedMentions.none(),
 			)
 			await ops.offer_call(message)

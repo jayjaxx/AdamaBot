@@ -13,6 +13,7 @@ from adama.models.ship import DISTANCES, RATION_LEVELS
 from adama.perms import UserError, control_only
 from adama.rules import Notice
 from adama.rules import editing
+from adama.rules import jumps as jump_rules
 
 logger = logging.getLogger()
 
@@ -282,6 +283,31 @@ class EditingCommands(commands.Cog):
 			)
 
 	@ship.command(
+		name="teleport",
+		description="Move a ship and everything aboard to any coordinates, without fuel",
+	)
+	@app_commands.describe(coordinates="5 digits, e.g. 12903")
+	@app_commands.autocomplete(ship_name=ship_autocomplete)
+	@control_only()
+	async def ship_teleport(
+		self, interaction: discord.Interaction, ship_name: str, coordinates: str
+	):
+		guild = interaction.guild
+		assert guild is not None
+		async with self.galaxies.lock(guild.id):
+			galaxy = self.galaxy(interaction)
+			target = ship_named(galaxy, ship_name)
+			moved = jump_rules.teleport_ship(galaxy, target, coordinates)
+			await self.finish(
+				interaction,
+				galaxy,
+				moved.notices,
+				f"The {target.name} is now at {target.coordinates}.",
+			)
+			# First responders left behind in combat by a commanding ship.
+			await ops.sync_players(guild, galaxy, moved.resync)
+
+	@ship.command(
 		name="destroy",
 		description="Mark a ship destroyed (nothing is deleted: move people yourself)",
 	)
@@ -296,6 +322,30 @@ class EditingCommands(commands.Cog):
 			await self.finish(
 				interaction, galaxy, notices, f"The {target.name} has been destroyed."
 			)
+
+	@ship.command(
+		name="setcombat",
+		description="Make a ship a combat ship (lockdowns check it for first responders)",
+	)
+	@app_commands.autocomplete(ship_name=ship_autocomplete)
+	@control_only()
+	async def ship_setcombat(self, interaction: discord.Interaction, ship_name: str):
+		await self._combat_ship(interaction, ship_name, True)
+
+	@ship.command(name="unsetcombat", description="Stop a ship being a combat ship")
+	@app_commands.autocomplete(ship_name=ship_autocomplete)
+	@control_only()
+	async def ship_unsetcombat(self, interaction: discord.Interaction, ship_name: str):
+		await self._combat_ship(interaction, ship_name, False)
+
+	async def _combat_ship(
+		self, interaction: discord.Interaction, ship_name: str, combat: bool
+	) -> None:
+		assert interaction.guild is not None
+		async with self.galaxies.lock(interaction.guild.id):
+			galaxy = self.galaxy(interaction)
+			text = editing.set_combat_ship(ship_named(galaxy, ship_name), combat)
+			await self.finish(interaction, galaxy, [], text)
 
 	@ship.command(
 		name="rationconsumption",

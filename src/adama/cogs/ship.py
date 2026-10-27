@@ -9,9 +9,10 @@ from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
 from adama.cogs._shared import (
+	HANGAR_OR_BRIDGE,
 	WHERE_BRIDGE,
-	WHERE_HANGAR,
-	WHERE_HANGAR_CREW,
+	WHERE_SHIP,
+	WHERE_SHIP_CREW,
 	CrewPicker,
 	choices,
 	ship_for_channel,
@@ -192,7 +193,7 @@ class ShipCommands(commands.Cog):
 
 	@app_commands.command(
 		name="load",
-		extras=WHERE_HANGAR_CREW,
+		extras=WHERE_SHIP_CREW,
 		description="Load resources from your ship onto a docked shuttle",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -209,7 +210,11 @@ class ShipCommands(commands.Cog):
 		async with self.galaxies.lock(interaction.guild.id):
 			galaxy = self.galaxy(interaction)
 			ship = ship_here(
-				galaxy, interaction, ch.SHIP_HANGAR, gm=self.gm(interaction), crew=True
+				galaxy,
+				interaction,
+				HANGAR_OR_BRIDGE,
+				gm=self.gm(interaction),
+				crew=True,
 			)
 			notices = res_rules.load(
 				ship, shuttle, amount, resource, interaction.user.mention
@@ -218,7 +223,7 @@ class ShipCommands(commands.Cog):
 
 	@app_commands.command(
 		name="unload",
-		extras=WHERE_HANGAR,
+		extras=WHERE_SHIP,
 		description="Unload resources from a docked shuttle onto this ship",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -235,7 +240,11 @@ class ShipCommands(commands.Cog):
 		async with self.galaxies.lock(interaction.guild.id):
 			galaxy = self.galaxy(interaction)
 			ship = ship_here(
-				galaxy, interaction, ch.SHIP_HANGAR, gm=self.gm(interaction), crew=False
+				galaxy,
+				interaction,
+				HANGAR_OR_BRIDGE,
+				gm=self.gm(interaction),
+				crew=False,
 			)
 			notices = res_rules.unload(
 				ship, shuttle, amount, resource, interaction.user.mention
@@ -333,7 +342,7 @@ class ShipCommands(commands.Cog):
 			raise UserError(
 				f'Not enough available crew matching "{cost.crew_keyword}": need {cost.crew_amount}, have {len(units)}.'
 			)
-		picker = CrewPicker(interaction.user.id, units, cost.crew_amount, run)
+		picker = CrewPicker(interaction.user.id, units, cost.crew_amount, run, galaxy)
 		await interaction.response.send_message(
 			f"Choose {cost.crew_amount} crew for `{station.id}` {station.name}:",
 			view=picker,

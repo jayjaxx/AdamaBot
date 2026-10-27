@@ -57,6 +57,7 @@ All 11 files use exactly the same keys in the same order. A trimmed example:
     "food_ration_level": "normal",           // luxurious|increased|normal|low|minimum|critical|none
     "water_ration_level": "normal",
     "isolated": false, "destroyed": false, "jumping": false,
+    "combat_ship": false,                    // lockdowns check combat ships for first responders
     "morale_level": 10,                      // clamp 0..10; at 0, alert control
     "morale_rolled_this_turn": false,
     "damage_taken_this_turn": 0,             // only used by the Aegis (-1 morale per 3)

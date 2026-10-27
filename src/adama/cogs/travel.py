@@ -9,8 +9,9 @@ from adama import channels as ch
 from adama import discord_ops as ops
 from adama.bot import AdamaBot, reply
 from adama.cogs._shared import (
+	HANGAR_OR_BRIDGE,
 	WHERE_BRIDGE,
-	WHERE_HANGAR,
+	WHERE_SHIP,
 	WHERE_SHIP_CREW,
 	choices,
 	player_of,
@@ -131,7 +132,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="launch",
-		extras=WHERE_HANGAR,
+		extras=WHERE_SHIP,
 		description="Fly a docked shuttle (and its cargo) to another ship at your coordinates",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -148,7 +149,9 @@ class TravelCommands(commands.Cog):
 		assert guild is not None
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxy(interaction)
-			ship = ship_here(galaxy, interaction, ch.SHIP_HANGAR, gm=False, crew=False)
+			ship = ship_here(
+				galaxy, interaction, HANGAR_OR_BRIDGE, gm=False, crew=False
+			)
 			player = player_of(galaxy, interaction.user)
 			started, notices = shuttle_rules.launch(
 				galaxy, player, ship, shuttle, destination
@@ -177,7 +180,7 @@ class TravelCommands(commands.Cog):
 
 	@app_commands.command(
 		name="intercept",
-		extras=WHERE_HANGAR,
+		extras=WHERE_SHIP,
 		description="Stop a docked shuttle launching until it is given clearance",
 	)
 	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
@@ -189,7 +192,7 @@ class TravelCommands(commands.Cog):
 		async with self.galaxies.lock(interaction.guild.id):
 			galaxy = self.galaxy(interaction)
 			gm = self.gm(interaction)
-			ship = ship_here(galaxy, interaction, ch.SHIP_HANGAR, gm=gm, crew=False)
+			ship = ship_here(galaxy, interaction, HANGAR_OR_BRIDGE, gm=gm, crew=False)
 			player = galaxy.player_by_user(interaction.user.id)
 			if player is None and not gm:
 				player = player_of(galaxy, interaction.user)
@@ -416,31 +419,6 @@ class TravelCommands(commands.Cog):
 			galaxy = self.galaxy(interaction)
 			text = jump_rules.clear_subbed_coords(ship_named(galaxy, ship_name))
 			await self.finish(interaction, galaxy, [], text)
-
-	@app_commands.command(
-		name="teleportship",
-		description="Move a ship and everything aboard to any coordinates, without fuel",
-		extras=GM,
-	)
-	@app_commands.autocomplete(ship_name=ship_autocomplete)
-	@control_only()
-	async def teleportship(
-		self, interaction: discord.Interaction, ship_name: str, coordinates: str
-	):
-		guild = interaction.guild
-		assert guild is not None
-		async with self.galaxies.lock(guild.id):
-			galaxy = self.galaxy(interaction)
-			ship = ship_named(galaxy, ship_name)
-			moved = jump_rules.teleport_ship(galaxy, ship, coordinates)
-			await self.finish(
-				interaction,
-				galaxy,
-				moved.notices,
-				f"The {ship.name} is now at {ship.coordinates}.",
-				fleet=True,
-			)
-			await ops.sync_players(guild, galaxy, moved.resync)
 
 	@app_commands.command(
 		name="setjumpdistance",

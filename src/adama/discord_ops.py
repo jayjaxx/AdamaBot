@@ -14,11 +14,22 @@ import discord
 
 from adama import channels as ch
 from adama.access import Access, managed_channels, player_access
+from adama.rules.players import current_ship
 from adama.config import RolesConfig
 from adama.models.galaxy import Galaxy
 from adama.models.player import Player
 from adama.models.ship import Ship
-from adama.rules import BRIDGE, BRIG, BROADCAST, CONTROL, COUNCIL, HANGAR, PDA, Notice
+from adama.rules import (
+	BRIDGE,
+	BRIG,
+	BROADCAST,
+	COMBAT,
+	CONTROL,
+	COUNCIL,
+	HANGAR,
+	PDA,
+	Notice,
+)
 from adama.perms import GM_COMMAND_PERMISSION, UserError, is_gm
 from adama.status import fleet_status, split_message
 
@@ -767,13 +778,18 @@ async def sync_player(
 	managed = managed_channels(galaxy)
 	grants: list[Coroutine[Any, Any, None]] = []
 	revokes: list[Coroutine[Any, Any, None]] = []
+	voice = member.voice.channel if member.voice else None
+	speak_changed = False
 	for channel_id in managed:
 		channel = guild.get_channel(channel_id)
 		if channel is None:
 			continue
 		want = _to_overwrite(channel, desired.get(channel_id))
-		if channel.overwrites_for(member) == want:
+		current = channel.overwrites_for(member)
+		if current == want:
 			continue
+		if voice is not None and channel.id == voice.id and current.speak != want.speak:
+			speak_changed = True
 		change = channel.set_permissions(
 			member, overwrite=None if want.is_empty() else want
 		)
@@ -784,6 +800,43 @@ async def sync_player(
 	await asyncio.gather(*grants)
 	await _leave_lost_voice(guild, galaxy, player, member, desired, travelled, pda)
 	await asyncio.gather(*revokes)
+	still_there = voice is not None and (desired.get(voice.id) or Access()).connect
+	if speak_changed and still_there and isinstance(voice, discord.VoiceChannel):
+		await _rejoin_voice(guild, galaxy, player, member, voice, desired, pda)
+
+
+async def _rejoin_voice(
+	guild: discord.Guild,
+	galaxy: Galaxy,
+	player: Player,
+	member: discord.Member,
+	voice: discord.VoiceChannel,
+	desired: dict[int, Access],
+	pda: GuildChannel | None,
+) -> None:
+	"""Discord only re-checks Speak when someone joins a channel (moving them into the
+	one they're in does nothing), so a new president, /permit or /gag wouldn't apply
+	until they rejoined. Hop them through their ship's Hangar VC and back; with no
+	hangar to hop through, disconnect them and ask them to rejoin."""
+	ship = current_ship(galaxy, player)
+	hop = ship_channel(guild, galaxy, ship.id, ch.SHIP_VC_HANGAR) if ship else None
+	try:
+		if (
+			isinstance(hop, discord.VoiceChannel)
+			and hop.id != voice.id
+			and (desired.get(hop.id) or Access()).connect
+		):
+			await member.move_to(hop)
+			await member.move_to(voice)
+			return
+		await member.move_to(None)
+	except discord.HTTPException:
+		logger.warning("Couldn't refresh %s's voice permissions", member)
+		return
+	if isinstance(pda, discord.TextChannel):
+		await pda.send(
+			f"Your permission to speak in {voice.name} changed: rejoin it to apply."
+		)
 
 
 async def _leave_lost_voice(
@@ -850,7 +903,7 @@ async def post_notices(
 	for notice in notices:
 		channel = _notice_channel(guild, galaxy, notice)
 		if isinstance(channel, discord.TextChannel):
-			text, mentions = notice.text, NO_MENTIONS
+			text, mentions = notice.text + link_line(guild, galaxy, notice), NO_MENTIONS
 			owner = galaxy.players.get(notice.id) if notice.target == PDA else None
 			if notice.ping and owner is not None:
 				text = f"<@{owner.discord_user_id}> {text}"
@@ -924,22 +977,46 @@ async def take_call(
 def _notice_channel(
 	guild: discord.Guild, galaxy: Galaxy, notice: Notice
 ) -> GuildChannel | None:
-	if notice.target == HANGAR:
-		return ship_channel(guild, galaxy, notice.id, ch.SHIP_HANGAR)
-	if notice.target == BRIDGE:
-		return ship_channel(guild, galaxy, notice.id, ch.SHIP_BRIDGE)
-	if notice.target == PDA:
-		player = galaxy.players.get(notice.id)
+	return target_channel(guild, galaxy, notice.target, notice.id)
+
+
+def target_channel(
+	guild: discord.Guild, galaxy: Galaxy, target: str, id: str
+) -> GuildChannel | None:
+	"""The channel a notice target (and ID) means; see Notice."""
+	if target == HANGAR:
+		return ship_channel(guild, galaxy, id, ch.SHIP_HANGAR)
+	if target == BRIDGE:
+		return ship_channel(guild, galaxy, id, ch.SHIP_BRIDGE)
+	if target == PDA:
+		player = galaxy.players.get(id)
 		return guild.get_channel(player.pda_channel_id or 0) if player else None
-	if notice.target == CONTROL:
+	if target == CONTROL:
 		return get_channel(guild, galaxy, ch.CONTROL_CHAT)
-	if notice.target == BROADCAST:
+	if target == BROADCAST:
 		return get_channel(guild, galaxy, ch.CONTROL_BROADCASTS)
-	if notice.target == BRIG:
+	if target == BRIG:
 		return get_channel(guild, galaxy, ch.BRIG)
-	if notice.target == COUNCIL:
+	if target == COUNCIL:
 		return get_channel(guild, galaxy, ch.COUNCIL_CHAMBERS)
+	if target == COMBAT:
+		coords = galaxy.coordinates.get(id)
+		channel_id = coords.combat_text_channel_id if coords else None
+		return guild.get_channel(channel_id) if channel_id else None
 	return None
+
+
+def channel_link(channel: object) -> str:
+	"""The same link line for one channel (e.g. where a command was run), or ""."""
+	mention = getattr(channel, "mention", None)
+	return f"\n📍 {mention}" if mention else ""
+
+
+def link_line(guild: discord.Guild, galaxy: Galaxy, notice: Notice) -> str:
+	"""A line of clickable channel links for the notice's `links`, or ""."""
+	channels = [target_channel(guild, galaxy, t, id) for t, id in notice.links]
+	mentions = [c.mention for c in channels if c is not None]
+	return "\n📍 " + " ".join(dict.fromkeys(mentions)) if mentions else ""
 
 
 def office_role_names(roles: RolesConfig) -> list[str]:

@@ -44,11 +44,12 @@ def ship_for_channel(galaxy: Galaxy, channel_id: int | None) -> tuple[Ship, str]
 
 
 # Where a player command works, shown by /help (command extras).
-WHERE_HANGAR = {"where": "hangar"}
-WHERE_HANGAR_CREW = {"where": "hangar, crew only"}
+WHERE_SHIP = {"where": "hangar or bridge"}
 WHERE_BRIDGE = {"where": "bridge, crew only"}
 WHERE_SHIP_CREW = {"where": "hangar or bridge, crew only"}
-WHERE_HANGAR_UNIT_CREW = {"where": "hangar, crew of the unit's ship"}
+WHERE_SHIP_UNIT_CREW = {"where": "hangar or bridge, crew of the unit's ship"}
+# Hangar commands also work on the bridge (which only crew can see).
+HANGAR_OR_BRIDGE = (ch.SHIP_HANGAR, ch.SHIP_BRIDGE)
 
 # Commands only an office holder can use; /help lists each office under its own header
 # and only to players who hold it.
@@ -61,13 +62,19 @@ FIRST_RESPONDER_ONLY = {"office": "first_responder"}
 
 
 def ship_here(
-	galaxy: Galaxy, interaction: discord.Interaction, kind: str, *, gm: bool, crew: bool
+	galaxy: Galaxy,
+	interaction: discord.Interaction,
+	kind: str | tuple[str, ...],
+	*,
+	gm: bool,
+	crew: bool,
 ) -> Ship:
 	"""The ship whose hangar or bridge the command was run in, checking that the user is
 	aboard it (and crew, if needed). Control may act on any ship from its channels."""
 	found = ship_for_channel(galaxy, interaction.channel_id)
-	if found is None or found[1] != kind:
-		raise UserError(f"Run this in a ship's {kind} channel.")
+	kinds = (kind,) if isinstance(kind, str) else kind
+	if found is None or found[1] not in kinds:
+		raise UserError(f"Run this in a ship's {' or '.join(kinds)} channel.")
 	ship = found[0]
 	if gm:
 		return ship
@@ -93,6 +100,11 @@ def choices(
 OnPick = Callable[[discord.Interaction, list[str]], Awaitable[None]]
 
 
+def _ship_name(galaxy: Galaxy, ship_id: str) -> str:
+	ship = galaxy.ships.get(ship_id)
+	return ship.name if ship else ship_id
+
+
 class _CrewSelect(discord.ui.Select):
 	async def callback(self, interaction: discord.Interaction) -> None:
 		assert isinstance(self.view, CrewPicker)
@@ -103,7 +115,14 @@ class _CrewSelect(discord.ui.Select):
 class CrewPicker(discord.ui.View):
 	"""A pick-list of eligible crew. Only the user who opened it can use it."""
 
-	def __init__(self, user_id: int, units: list[Unit], amount: int, on_pick: OnPick):
+	def __init__(
+		self,
+		user_id: int,
+		units: list[Unit],
+		amount: int,
+		on_pick: OnPick,
+		galaxy: Galaxy,
+	):
 		super().__init__(timeout=180)
 		self.user_id = user_id
 		self.on_pick = on_pick
@@ -115,7 +134,7 @@ class CrewPicker(discord.ui.View):
 				discord.SelectOption(
 					label=f"{u.id} {u.name}",
 					value=u.id,
-					description=f"affiliated with {u.affiliation}",
+					description=f"affiliated with the {_ship_name(galaxy, u.affiliation)}",
 				)
 				for u in units[:MAX_CHOICES]
 			],

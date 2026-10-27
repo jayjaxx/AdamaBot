@@ -203,16 +203,28 @@ class CharacterCommands(commands.Cog):
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxy(interaction)
 			ship = ship_named(galaxy, ship_name)
+			old = galaxy.brig_ship
 			notices = char_rules.move_brig(galaxy, ship)
 			await interaction.response.defer(ephemeral=True)
 			await ops.place_council_and_brig(guild, galaxy)
+			# Whoever is aboard the old and new brig ships gains or loses the brig.
+			aboard = [
+				p for p in galaxy.players.values() if p.location in (old, ship.id)
+			]
 			await self.finish(
-				interaction, galaxy, notices, f"The brig is now on the {ship.name}."
+				interaction,
+				galaxy,
+				notices,
+				f"The brig is now on the {ship.name}.",
+				sync=aboard,
 			)
 
 	# The council (president)
 
-	def president(self, interaction: discord.Interaction) -> Player:
+	def president(self, interaction: discord.Interaction) -> Player | None:
+		"""Who runs a president's command: None for control, who may stand in."""
+		if is_gm(interaction.user, self.roles):
+			return None
 		return player_of(self.galaxy(interaction), interaction.user)
 
 	@app_commands.command(
@@ -230,7 +242,7 @@ class CharacterCommands(commands.Cog):
 	@app_commands.command(
 		name="relocate",
 		extras=PRESIDENT_ONLY,
-		description="President: move the council chambers to another ship (control can too)",
+		description="President: move the council chambers to another ship",
 	)
 	@app_commands.autocomplete(ship_name=ship_autocomplete)
 	async def relocate(self, interaction: discord.Interaction, ship_name: str):
@@ -239,12 +251,7 @@ class CharacterCommands(commands.Cog):
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxy(interaction)
 			ship = ship_named(galaxy, ship_name)
-			mover = (
-				None
-				if is_gm(interaction.user, self.roles)
-				else self.president(interaction)
-			)
-			change = council_rules.relocate(galaxy, mover, ship)
+			change = council_rules.relocate(galaxy, self.president(interaction), ship)
 			await interaction.response.defer(ephemeral=True)
 			await ops.place_council_and_brig(guild, galaxy)
 			await self.finish(

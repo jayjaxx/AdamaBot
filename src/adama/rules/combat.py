@@ -8,7 +8,16 @@ from adama.models.galaxy import Coordinates, Galaxy
 from adama.models.player import LOCATION_BRIG, LOCATION_COMBAT, LOCATION_NONE, Player
 from adama.models.ship import Ship
 from adama.models.unit import Unit
-from adama.rules import BRIDGE, CONTROL, COUNCIL, HANGAR, PDA, GameError, Notice
+from adama.rules import (
+	BRIDGE,
+	COMBAT,
+	CONTROL,
+	COUNCIL,
+	HANGAR,
+	PDA,
+	GameError,
+	Notice,
+)
 from adama.rules.jumps import check_coordinates
 from adama.rules.players import combat_coordinates, mention
 from adama.rules.resources import docked_shuttle
@@ -98,7 +107,7 @@ def readiness_report(
 	galaxy: Galaxy, coordinates: str, commanders: list[Player]
 ) -> Notice | None:
 	"""For control at /lockdown: first responders in the fleet who couldn't /travel
-	combat, and ships with no first responder among their crew."""
+	combat, and combat ships at the coordinates with no first responder in their crew."""
 	unable = []
 	for player in galaxy.players.values():
 		if not player.first_responder:
@@ -111,8 +120,8 @@ def readiness_report(
 		unable.append(f"{mention(player)} ({problem})")
 	uncovered = [
 		ship.name
-		for ship in galaxy.ships.values()
-		if not ship.destroyed
+		for ship in galaxy.ships_at(coordinates)
+		if ship.combat_ship
 		and not any(
 			p.first_responder and not p.dead and ship.id in p.crew_affiliations
 			for p in galaxy.players.values()
@@ -127,9 +136,11 @@ def readiness_report(
 		)
 	if uncovered:
 		parts.append(
-			"Ships with no first responder in their crew: " + ", ".join(uncovered) + "."
+			"Combat ships here with no first responder in their crew: "
+			+ ", ".join(uncovered)
+			+ "."
 		)
-	return Notice(CONTROL, " ".join(parts), claim=True)
+	return Notice(CONTROL, " ".join(parts), claim=True, links=((COMBAT, coordinates),))
 
 
 def lockdown(
@@ -166,14 +177,15 @@ def lockdown(
 	commanders = commanding_crew(galaxy, coords)
 	for player in _merge(first_responders_at(galaxy, coordinates), commanders):
 		text = (
-			f"**Action stations!** {coordinates} is in lockdown: come to the "
-			"battlemap. Use `/travel combat` in your hangar to join the combat."
+			f"**Action stations!** {coordinates} is in lockdown: come to the battlemap."
 		)
 		if player in commanders:
 			text += (
 				f" As crew of the {commanding.name}, which commands it, you can "
 				"already see the combat channels while aboard."
 			)
+		else:
+			text += " Use `/travel combat` in your hangar to join the combat."
 		change.notices.append(Notice(PDA, text, player.id, ping=True))
 	change.notices.append(
 		Notice(
@@ -222,6 +234,7 @@ def end_lockdown(galaxy: Galaxy, coordinates: str | None) -> CombatChange:
 			commanding = None  # it jumped away too
 		moved_over: list[str] = []
 		unplaced: list[str] = []
+		called: list[tuple[str, str]] = []  # their PDAs, linked in the alert
 		for player in galaxy.players.values():
 			origin = galaxy.ships.get(player.combat_origin_ship or "")
 			if origin is None:
@@ -236,6 +249,7 @@ def end_lockdown(galaxy: Galaxy, coordinates: str | None) -> CombatChange:
 			if player.wounded:
 				dest = None
 				unplaced.append(f"{mention(player)} ({roles}; wounded)")
+				called.append((PDA, player.id))
 			elif origin.coordinates != coords.coordinates:
 				dest = commanding
 				reason = f"the {origin.name} had left"
@@ -243,6 +257,7 @@ def end_lockdown(galaxy: Galaxy, coordinates: str | None) -> CombatChange:
 					reason += " and so had the commanding ship"
 				who = f"{mention(player)} ({roles}; {reason})"
 				(moved_over if dest else unplaced).append(who)
+				called.append((PDA, player.id))
 			player.location = dest.id if dest else LOCATION_NONE
 			player.combat_origin_ship = None
 			player.combat_coordinates = None
@@ -274,7 +289,9 @@ def end_lockdown(galaxy: Galaxy, coordinates: str | None) -> CombatChange:
 				+ "."
 			)
 		if len(alert) > 1:
-			change.notices.append(Notice(CONTROL, " ".join(alert), claim=True))
+			change.notices.append(
+				Notice(CONTROL, " ".join(alert), claim=True, links=tuple(called))
+			)
 		ended_text = f"The lockdown at {coords.coordinates} has ended."
 		here = galaxy.ships_at(coords.coordinates)
 		for ship in here:
@@ -409,13 +426,13 @@ def load_unit(
 def unload_unit(
 	galaxy: Galaxy, player: Player | None, ship: Ship, unit_id: str
 ) -> list[Notice]:
-	"""/unloadunit: the unit keeps its affiliation (e.g. a boarding party)."""
+	"""/unloadunit: anyone aboard may unload any unit, whatever its affiliation. The unit
+	keeps its affiliation (e.g. a boarding party)."""
 	unit_id = unit_id.strip()
 	for shuttle in ship.shuttles.values():
 		unit = shuttle.units.get(unit_id)
 		if unit is None:
 			continue
-		_check_unit_crew(galaxy, player, unit)
 		del shuttle.units[unit.id]
 		ship.units[unit.id] = unit
 		by = mention(player) if player else "Control"

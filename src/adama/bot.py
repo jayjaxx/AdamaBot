@@ -161,6 +161,20 @@ SHUTDOWN_ALERT = (
 )
 
 
+def back_online_alert(galaxy: Galaxy, countdowns_cancelled: bool) -> str | None:
+	"""After a restart during setup or a game (None otherwise: nobody was told it went
+	down with a ping)."""
+	if galaxy.state not in (STATE_INITIALIZING, STATE_IN_PROGRESS):
+		return None
+	text = "@everyone **ADAMA is back online.** Commands work again."
+	if countdowns_cancelled:
+		text += (
+			" Shuttle launches and jumps that were counting down were cancelled: "
+			"start them again."
+		)
+	return text
+
+
 def shutdown_alert(galaxy: Galaxy) -> str:
 	"""Everyone is pinged only while a game is being set up or played."""
 	if galaxy.state in (STATE_INITIALIZING, STATE_IN_PROGRESS):

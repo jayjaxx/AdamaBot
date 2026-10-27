@@ -24,7 +24,8 @@ def _crew(keyword: str, amount: int) -> str:
 	return f"{amount}× {keyword}" if amount else ""
 
 
-def format_station(station: Station) -> str:
+def format_station(station: Station, start_mark: str = "") -> str:
+	"""`start_mark` (bridge status) shows whether a start-of-turn station is done."""
 	flags = [
 		flag
 		for flag, on in (
@@ -33,7 +34,7 @@ def format_station(station: Station) -> str:
 			("exhausted", station.exhausted),
 			("unusable", not station.usable),
 			("reusable", station.reusable),
-			("start of turn", station.startofturn),
+			(f"start of turn {start_mark}".strip(), station.startofturn),
 		)
 		if on
 	]
@@ -88,6 +89,17 @@ def shuttle_label(shuttle: Shuttle) -> str:
 		if on
 	]
 	return shuttle.name + (f" ({', '.join(flags)})" if flags else "")
+
+
+def brig_status(galaxy: Galaxy) -> str:
+	ship = galaxy.ships.get(galaxy.brig_ship or "")
+	prisoners = [p for p in galaxy.players.values() if p.brigged]
+	lines = [
+		f"# Brig — aboard the {ship.name}" if ship else "# Brig — on no ship",
+		"**Currently brigged:** "
+		+ (", ".join(f"<@{p.discord_user_id}>" for p in prisoners) or "nobody"),
+	]
+	return "\n".join(lines)
 
 
 def hangar_status(galaxy: Galaxy, ship: Ship) -> str:
@@ -146,7 +158,10 @@ def bridge_status(galaxy: Galaxy, ship: Ship) -> str:
 	lines.append(f"**Jump coordinates:** {ship.next_coordinates or 'not set'}{jumping}")
 
 	lines.append("\n**Stations**")
-	lines.extend(format_station(station) for station in ship.stations.values())
+	lines.extend(
+		format_station(station, start_of_turn_mark(galaxy, station))
+		for station in ship.stations.values()
+	)
 
 	lines.append("\n**Units aboard**")
 	units = [
@@ -275,7 +290,11 @@ def fleet_status(galaxy: Galaxy) -> str:
 		for ship in ships:
 			flags = [
 				f
-				for f, on in (("isolated", ship.isolated), ("jumping", ship.jumping))
+				for f, on in (
+					("combat ship", ship.combat_ship),
+					("isolated", ship.isolated),
+					("jumping", ship.jumping),
+				)
 				if on
 			]
 			damaged = sum(1 for s in ship.stations.values() if s.damaged)
