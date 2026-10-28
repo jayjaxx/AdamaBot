@@ -24,7 +24,7 @@ from adama.status import split_message
 logger = logging.getLogger()
 
 # Commands that still work in the otherwise blind #starting-games.
-STARTING_GAMES_COMMANDS = {"startinitialization", "gm", "shutdown"}
+STARTING_GAMES_COMMANDS = {"startinitialization", "gm", "ungm", "shutdown"}
 # The only commands brigged and dead players can use.
 BRIGGED_COMMANDS = {"status", "roll", "control", "help"}
 DEAD_COMMANDS = {"control", "help"}

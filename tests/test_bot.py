@@ -111,6 +111,7 @@ GM_COMMANDS = {
 	"refreshstation",
 	"teleportunit",
 	"damageunit",
+	"ungm",
 	"lockdown",
 	"endlockdown",
 	"transfercommand",

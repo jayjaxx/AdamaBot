@@ -362,6 +362,22 @@ class GameCommands(commands.Cog):
 		)
 
 	@app_commands.command(
+		name="ungm", description="Remove someone's control role", extras=GM
+	)
+	@app_commands.describe(user="The controller to remove")
+	@control_only()
+	async def ungm(self, interaction: discord.Interaction, user: discord.Member):
+		guild = interaction.guild
+		assert guild is not None
+		control = ops.get_control_role(guild, self.roles)
+		if control is None or control not in user.roles:
+			raise UserError(f"{user.mention} isn't a controller.")
+		await user.remove_roles(control, reason=f"/ungm by {interaction.user}")
+		await reply(
+			interaction, f"{user.mention} is no longer a controller.", ephemeral=True
+		)
+
+	@app_commands.command(
 		name="startgame",
 		description="Start the game: create players from the lobby's roles",
 		extras=GM,
