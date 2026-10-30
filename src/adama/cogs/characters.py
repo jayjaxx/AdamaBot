@@ -4,8 +4,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from adama import channels as ch
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import PRESIDENT_ONLY, choices, player_of, ship_named
 from adama.models.galaxy import STATE_INITIALIZING, Galaxy
 from adama.models.player import Player
@@ -50,7 +51,7 @@ class CharacterCommands(commands.Cog):
 		assert guild is not None
 		self.galaxies.save(galaxy)
 		if not interaction.response.is_done():
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 		if sync:
 			await ops.sync_players(guild, galaxy, sync)
 		await ops.post_notices(guild, galaxy, notices, self.roles)
@@ -106,7 +107,7 @@ class CharacterCommands(commands.Cog):
 			galaxy = self.galaxy(interaction)
 			target = player_of(galaxy, player)
 			notices = char_rules.kill(galaxy, target)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			removed = await ops.strip_game_roles(guild, galaxy, target, self.roles)
 			assert target.stored_state is not None
 			target.stored_state["roles"] = removed
@@ -141,7 +142,7 @@ class CharacterCommands(commands.Cog):
 			target = player_of(galaxy, player)
 			ship = ship_named(galaxy, ship_name) if ship_name else None
 			notices = char_rules.resurrect(galaxy, target, ship)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			await ops.give_roles(guild, target, char_rules.stored_roles(target))
 			char_rules.clear_stored_state(target)
 			await self.finish(
@@ -205,7 +206,7 @@ class CharacterCommands(commands.Cog):
 			ship = ship_named(galaxy, ship_name)
 			old = galaxy.brig_ship
 			notices = char_rules.move_brig(galaxy, ship)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			await ops.place_council_and_brig(guild, galaxy)
 			# Whoever is aboard the old and new brig ships gains or loses the brig.
 			aboard = [
@@ -252,7 +253,7 @@ class CharacterCommands(commands.Cog):
 			galaxy = self.galaxy(interaction)
 			ship = ship_named(galaxy, ship_name)
 			change = council_rules.relocate(galaxy, self.president(interaction), ship)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			await ops.place_council_and_brig(guild, galaxy)
 			await self.finish(
 				interaction,
@@ -260,6 +261,9 @@ class CharacterCommands(commands.Cog):
 				change.notices,
 				f"The chambers are now on the {ship.name}.",
 				sync=change.resync,
+			)
+			await ops.verify_channel_access(
+				guild, galaxy, (ch.COUNCIL_CHAMBERS, ch.VC_COUNCIL_CHAMBERS)
 			)
 
 	@app_commands.command(
@@ -387,7 +391,7 @@ class CharacterCommands(commands.Cog):
 	) -> None:
 		guild = interaction.guild
 		assert guild is not None
-		await interaction.response.defer(ephemeral=True)
+		await defer(interaction, ephemeral=True)
 		for player, office, given in change.roles:
 			await ops.set_role(guild, player, self.office_role(office), given)
 		await self.finish(interaction, galaxy, change.notices, done, sync=change.resync)
@@ -477,7 +481,7 @@ class CharacterCommands(commands.Cog):
 				return
 			player = player_of(galaxy, member)
 			notices = combat_rules.set_first_responder(player, given)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			await ops.set_role(guild, player, self.roles.FIRST_RESPONDER, given)
 			await self.finish(interaction, galaxy, notices, done, sync=[player])
 

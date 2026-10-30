@@ -486,14 +486,27 @@ def game_channels(guild: discord.Guild, galaxy: Galaxy) -> list[GuildChannel]:
 	return [c for c in channels if c is not None]
 
 
-async def open_to_everyone(guild: discord.Guild, galaxy: Galaxy) -> None:
+async def _retry_server_errors(make, attempts: int = 3) -> None:
+	"""Runs `make()` (a coroutine factory), retrying Discord's transient 5xx errors."""
+	for attempt in range(attempts):
+		try:
+			await make()
+			return
+		except discord.DiscordServerError:
+			if attempt == attempts - 1:
+				raise
+			await asyncio.sleep(2**attempt)
+
+
+async def open_to_everyone(guild: discord.Guild, galaxy: Galaxy) -> list[str]:
 	"""/endgame: everyone can read and post in every game channel and read
-	#fleet-status. Undone by the next /startinitialization."""
+	#fleet-status. Undone by the next /startinitialization. Returns the names of the
+	channels Discord wouldn't change (the rest are still opened)."""
 	everyone = guild.default_role
-	changes = [
-		channel.set_permissions(
-			everyone,
-			overwrite=OPEN_VOICE
+	targets: list[tuple[GuildChannel, discord.PermissionOverwrite]] = [
+		(
+			channel,
+			OPEN_VOICE
 			if isinstance(channel, (discord.VoiceChannel, discord.StageChannel))
 			else OPEN_TEXT,
 		)
@@ -501,8 +514,24 @@ async def open_to_everyone(guild: discord.Guild, galaxy: Galaxy) -> None:
 	]
 	fleet_status = get_channel(guild, galaxy, ch.FLEET_STATUS)
 	if fleet_status is not None:
-		changes.append(fleet_status.set_permissions(everyone, overwrite=READ_ONLY_TEXT))
-	await asyncio.gather(*changes)
+		targets.append((fleet_status, READ_ONLY_TEXT))
+	failed: list[str] = []
+
+	async def open_one(
+		channel: GuildChannel, overwrite: discord.PermissionOverwrite
+	) -> None:
+		if channel.overwrites_for(everyone) == overwrite:
+			return
+		try:
+			await _retry_server_errors(
+				lambda: channel.set_permissions(everyone, overwrite=overwrite)
+			)
+		except discord.HTTPException:
+			logger.warning("Could not open #%s to everyone", channel.name)
+			failed.append(channel.name)
+
+	await asyncio.gather(*(open_one(c, o) for c, o in targets))
+	return failed
 
 
 async def announce_everywhere(guild: discord.Guild, galaxy: Galaxy, text: str) -> None:
@@ -686,14 +715,30 @@ async def give_pda(
 
 
 async def admit_to_lobby(
-	guild: discord.Guild, galaxy: Galaxy, member: discord.Member
+	guild: discord.Guild, galaxy: Galaxy, member: discord.Member, *, pda: bool = True
 ) -> None:
+	"""Gives pregame access. Mid-game joiners get no PDA until /addplayer."""
 	for key, overwrite in LOBBY_ACCESS.items():
 		channel = get_channel(guild, galaxy, key)
 		if channel is not None:
 			await channel.set_permissions(member, overwrite=overwrite)
-	await give_pda(guild, galaxy, member)
+	if pda:
+		await give_pda(guild, galaxy, member)
 	galaxy.discord.admitted.append(member.id)
+
+
+async def leave_lobby_for_game(
+	guild: discord.Guild, galaxy: Galaxy, user_id: int
+) -> None:
+	"""A lobby member who became a player loses pregame access (keeping their PDA)."""
+	member = guild.get_member(user_id)
+	for key in LOBBY_ACCESS:
+		channel = get_channel(guild, galaxy, key)
+		if channel is not None and member is not None:
+			if not channel.overwrites_for(member).is_empty():
+				await channel.set_permissions(member, overwrite=None)
+	if user_id in galaxy.discord.admitted:
+		galaxy.discord.admitted.remove(user_id)
 
 
 async def remove_from_lobby(
@@ -1094,6 +1139,40 @@ async def restore_player(
 	await sync_player(guild, galaxy, player)
 
 
+async def verify_channel_access(
+	guild: discord.Guild, galaxy: Galaxy, keys: tuple[str, ...]
+) -> None:
+	"""Re-reads the channels' permissions from Discord (not the cache) and corrects
+	any player whose access doesn't match the game, logging each fix. A safety net
+	after moving channels, e.g. /relocate."""
+	for key in keys:
+		cached = get_channel(guild, galaxy, key)
+		if cached is None:
+			continue
+		try:
+			fresh = await guild.fetch_channel(cached.id)
+		except discord.HTTPException:
+			logger.warning("Couldn't fetch #%s to check its access", cached.name)
+			continue
+		if not isinstance(fresh, (discord.TextChannel, discord.VoiceChannel)):
+			continue
+		for player in galaxy.players.values():
+			member = guild.get_member(player.discord_user_id)
+			if member is None:
+				continue
+			want = _to_overwrite(fresh, player_access(galaxy, player).get(fresh.id))
+			if fresh.overwrites_for(member) == want:
+				continue
+			logger.warning(
+				"Fixing %s's access to #%s: it didn't match the game",
+				member,
+				fresh.name,
+			)
+			await fresh.set_permissions(
+				member, overwrite=None if want.is_empty() else want
+			)
+
+
 async def sync_players(
 	guild: discord.Guild, galaxy: Galaxy, players: list[Player]
 ) -> None:
@@ -1101,13 +1180,37 @@ async def sync_players(
 	await asyncio.gather(*(sync_player(guild, galaxy, p) for p in players))
 
 
-async def close_lobby(guild: discord.Guild, galaxy: Galaxy) -> None:
-	for key in LOBBY_ACCESS:
-		channel = get_channel(guild, galaxy, key)
-		if channel is not None:
-			await strip_member_overwrites(channel)
-	await delete_start_message(guild, galaxy)
+JOIN_EMOJI = "✅"
+IN_PROGRESS_MESSAGE = (
+	f"A game of **Den of Wolves** is in progress. React with {JOIN_EMOJI} to join "
+	"the pregame lobby: control can add you to the game from there."
+)
+
+
+async def keep_lobby_open(
+	guild: discord.Guild, galaxy: Galaxy, players: list[Player]
+) -> list[int]:
+	"""/startgame: the new players leave the pregame lobby; everyone else stays, and
+	anyone still queued is let in (there is no limit once the game is running). The
+	start message stays, so people can still react to join. Returns the user IDs left
+	in the lobby."""
+	for player in players:
+		await leave_lobby_for_game(guild, galaxy, player.discord_user_id)
+	for user_id in list(galaxy.discord.queue):
+		member = guild.get_member(user_id)
+		if member is not None:
+			await admit_to_lobby(guild, galaxy, member, pda=False)
 	galaxy.discord.queue.clear()
+	channel = get_channel(guild, galaxy, ch.STARTING_GAMES)
+	message_id = galaxy.discord.start_message_id
+	if message_id is not None and isinstance(channel, discord.TextChannel):
+		try:
+			await channel.get_partial_message(message_id).edit(
+				content=IN_PROGRESS_MESSAGE
+			)
+		except discord.HTTPException:
+			logger.warning("Couldn't edit the start message in %s", guild.name)
+	return list(galaxy.discord.admitted)
 
 
 async def set_role_permissions(

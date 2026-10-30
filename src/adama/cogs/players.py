@@ -7,11 +7,11 @@ from discord.ext import commands
 
 from adama import channels as ch
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import WHERE_SHIP, player_of, ship_named
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_COMBAT, Player
-from adama.perms import UserError, control_only
+from adama.perms import UserError, control_only, is_gm
 from adama.rules import players as rules
 from adama.rules.players import combat_coordinates, current_ship
 
@@ -88,28 +88,31 @@ class PlayerCommands(commands.Cog):
 					"Run /travel in the hangar or bridge of the ship you're aboard."
 				)
 			notices = rules.travel(galaxy, player, destination)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			self.galaxies.save(galaxy)
 			await ops.post_notices(guild, galaxy, notices)
 			await ops.sync_player(guild, galaxy, player, travelled=True)
 		where = current_ship(galaxy, player)
 		await reply(
 			interaction,
-			"You are in combat."
+			"You travel into combat."
 			if player.location == LOCATION_COMBAT
-			else f"You are aboard the {where.name if where else '?'}.",
+			else f"You travel to the {where.name if where else '?'}.",
 			ephemeral=True,
 		)
 
 	@app_commands.command(
-		name="locate", description="Find which ship a player at your coordinates is on"
+		name="locate",
+		description="Find which ship a player at your coordinates is on (control: anyone)",
 	)
 	async def locate(self, interaction: discord.Interaction, player: discord.Member):
 		galaxy = self.galaxies.get(interaction.guild.id) if interaction.guild else None
 		assert galaxy is not None
-		text = rules.locate(
-			galaxy, player_of(galaxy, interaction.user), player_of(galaxy, player)
-		)
+		target = player_of(galaxy, player)
+		if is_gm(interaction.user, self.roles):
+			text = rules.locate_for_control(galaxy, target)
+		else:
+			text = rules.locate(galaxy, player_of(galaxy, interaction.user), target)
 		await reply(interaction, text, ephemeral=True)
 
 	@app_commands.command(
@@ -128,7 +131,7 @@ class PlayerCommands(commands.Cog):
 			galaxy = self.galaxies.get(guild.id)
 			target = player_of(galaxy, player)
 			notices = rules.teleport(galaxy, target, destination)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			self.galaxies.save(galaxy)
 			await ops.post_notices(guild, galaxy, notices)
 			await ops.sync_player(guild, galaxy, target)
@@ -150,9 +153,10 @@ class PlayerCommands(commands.Cog):
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxies.get(guild.id)
 			player = rules.add_player(galaxy, user.id)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			pda = await ops.give_pda(guild, galaxy, user)
 			player.pda_channel_id = pda.id
+			await ops.leave_lobby_for_game(guild, galaxy, user.id)
 			self.galaxies.save(galaxy)
 			await ops.sync_player(guild, galaxy, player)
 			await pda.send(
@@ -198,7 +202,7 @@ class PlayerCommands(commands.Cog):
 			ship = ship_named(galaxy, ship_name)
 			change = rules.add_team if add else rules.remove_team
 			notices = change(galaxy, player, ship)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			self.galaxies.save(galaxy)
 			await ops.sync_crew_roles(guild, galaxy, player)
 			await ops.sync_player(guild, galaxy, player)
@@ -250,7 +254,7 @@ class PlayerCommands(commands.Cog):
 		else:
 			pdas = dict(galaxy.discord.pdas)
 
-		await interaction.response.defer(ephemeral=True)
+		await defer(interaction, ephemeral=True)
 		changed = []
 		edits = []
 		for channel_id in pdas.values():

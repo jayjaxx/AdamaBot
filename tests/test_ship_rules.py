@@ -175,11 +175,14 @@ def test_damage_hurts_crew_who_worked_it_and_counts_for_the_aegis():
 
 def test_damage_a_random_station_including_unusable_ones():
 	g = galaxy()
-	st.damage(g, "Aegis", Dice())
-	assert g.ships["0100"].stations["0110"].damaged  # Hull Plating, first candidate
+	done, _ = st.damage(g, "Aegis", Dice())
+	assert g.ships["0100"].stations["0110"].damaged
+	assert (
+		done == "Damaged `0110` Hull Plating on the Aegis."
+	)  # Hull Plating, first candidate
 	for station in g.ships["0800"].stations.values():
 		station.damaged = True
-	notices = st.damage(g, "Endeavour", Dice())
+	_, notices = st.damage(g, "Endeavour", Dice())
 	assert notices[0].target == CONTROL
 
 

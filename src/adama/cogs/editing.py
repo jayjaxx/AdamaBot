@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import choices, ship_named
 from adama.models.galaxy import Galaxy
 from adama.models.resources import RESOURCE_NAMES
@@ -83,7 +83,7 @@ class EditingCommands(commands.Cog):
 		assert guild is not None
 		self.galaxies.save(galaxy)
 		if not interaction.response.is_done():
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 		await ops.post_notices(guild, galaxy, notices, self.roles)
 		if galaxy.started:
 			await ops.update_fleet_status(guild, galaxy)
@@ -309,7 +309,7 @@ class EditingCommands(commands.Cog):
 			if control is None:
 				raise UserError("There is no control role.")
 			created = editing.conjure_ship(galaxy, name, coordinates)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			await ops.create_ship_channels(guild, galaxy, created, control)
 			await self.finish(
 				interaction,

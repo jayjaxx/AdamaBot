@@ -438,3 +438,17 @@ def test_destroying_a_ship_lists_who_is_aboard():
 	assert "<@6> (in the brig)" in call.text
 	notices = editing.destroy_ship(g, g.ships["0600"])  # the Lucas: nobody aboard
 	assert any("Nobody was aboard" in n.text and not n.claim for n in notices)
+
+
+def test_loading_several_units_is_all_or_nothing():
+	g = galaxy()
+	aegis = g.ships[AEGIS]
+	crew = aboard(g, AEGIS)
+	first, second = list(aegis.units)[:2]
+	with pytest.raises(GameError, match="no unit `9999`"):
+		combat.load_units(g, crew, aegis, [first, "9999"], "Cyclops")
+	assert first in aegis.units
+	notices = combat.load_units(g, crew, aegis, [first, second], "Cyclops")
+	assert len(notices) == 1 and first in notices[0].text and second in notices[0].text
+	combat.unload_units(g, crew, aegis, [first, second])
+	assert {first, second} <= set(aegis.units)

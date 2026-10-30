@@ -571,3 +571,82 @@ def test_back_online_alert_only_during_a_game():
 	assert text is not None and "cancelled" in text
 	for state in (STATE_IDLE, STATE_ENDED):
 		assert back_online_alert(Galaxy(1, state=state), True) is None
+
+
+def test_which_replies_are_public():
+	from adama.bot import defer, replies_publicly
+
+	galaxy = Galaxy(1)
+	galaxy.discord.pdas = {42: 700}
+
+	def run(command, channel_id):
+		return SimpleNamespace(
+			command=SimpleNamespace(name=command), channel_id=channel_id
+		)
+
+	assert replies_publicly(galaxy, run("roll", 1))
+	assert replies_publicly(galaxy, run("status", 700))  # in a PDA
+	assert not replies_publicly(galaxy, run("status", 1))  # hangar or bridge
+	assert not replies_publicly(galaxy, run("travel", 1))
+	assert not replies_publicly(galaxy, run("checkcoords", 1))
+	assert not replies_publicly(galaxy, run("fleet", 1))
+	assert not replies_publicly(galaxy, run("ping", 1))
+
+	calls: list = []
+
+	async def fake_defer(**kwargs):
+		calls.append(kwargs)
+
+	done = {"value": False}
+	interaction = SimpleNamespace(
+		response=SimpleNamespace(is_done=lambda: done["value"], defer=fake_defer)
+	)
+	asyncio.run(defer(interaction, ephemeral=False))
+	done["value"] = True
+	asyncio.run(defer(interaction))  # already acknowledged: does nothing
+	assert calls == [{"ephemeral": False}]
+
+
+def test_command_log_line():
+	from datetime import timedelta
+
+	from adama.bot import describe_command
+
+	user = SimpleNamespace(name="ana", id=7)
+	interaction = SimpleNamespace(
+		command=SimpleNamespace(qualified_name="station flag"),
+		namespace=[("station", "0129"), ("player", user)],
+		channel=SimpleNamespace(name="aegis-bridge"),
+		channel_id=1,
+		created_at=discord.utils.utcnow() - timedelta(milliseconds=250),
+		user=user,
+	)
+	line = describe_command(interaction, "done")
+	assert line.startswith(
+		"ana (7) ran /station flag station=0129 player=ana in #aegis-bridge: done ("
+	)
+	assert line.endswith(" ms)")
+	assert describe_command(SimpleNamespace(), "done") == "A command: done"
+
+
+def test_bots_cant_be_command_targets():
+	from adama.bot import targets_bot
+
+	adama = discord.User.__new__(discord.User)
+	adama.bot = True
+	assert targets_bot(SimpleNamespace(namespace=[("player", adama)]))
+	assert not targets_bot(SimpleNamespace(namespace=[("ship_name", "Aegis")]))
+
+
+def test_commands_only_work_in_known_channels():
+	from adama.bot import is_known_channel
+
+	galaxy = Galaxy(1)
+	assert is_known_channel(galaxy, 5)  # server not set up yet: nothing refused
+	galaxy.discord.channels = {"control_commands": 10}
+	galaxy.discord.pdas = {42: 700}
+	galaxy.discord.ship_channels = {"0100": {"bridge": 800, "category": 900}}
+	assert is_known_channel(galaxy, 10)
+	assert is_known_channel(galaxy, 700)
+	assert is_known_channel(galaxy, 800)
+	assert not is_known_channel(galaxy, 5)  # e.g. a channel added mid-game

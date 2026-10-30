@@ -8,8 +8,14 @@ from discord.ext import commands
 from adama import channels as ch
 from adama import discord_ops as ops
 from adama.constants import DEFAULT_SHIPS_DIR
-from adama.bot import AdamaBot, back_online_alert, reply
-from adama.models.galaxy import STATE_ENDED, STATE_IDLE, STATE_INITIALIZING, Galaxy
+from adama.bot import AdamaBot, back_online_alert, defer, reply
+from adama.models.galaxy import (
+	STATE_ENDED,
+	STATE_IDLE,
+	STATE_IN_PROGRESS,
+	STATE_INITIALIZING,
+	Galaxy,
+)
 from adama.models.ship import Ship
 from adama.perms import UserError, control_only, game_starter_only, is_gm
 from adama.rules.combat import end_lockdown
@@ -20,7 +26,7 @@ from adama.status import location_name, ship_summary
 
 logger = logging.getLogger()
 
-JOIN_EMOJI = "✅"
+JOIN_EMOJI = ops.JOIN_EMOJI
 # Discord allows at most 10 attachments per message.
 MAX_FILES = 10
 GM = {"gm": True}
@@ -55,6 +61,16 @@ MAX_ATTACHMENTS = 10
 
 def file_copies(files: list[ShipFile]) -> list[discord.File]:
 	return [discord.File(io.BytesIO(f.content), filename=f.filename) for f in files]
+
+
+def _opened(failed: list[str]) -> str:
+	if not failed:
+		return "Every channel is open to everyone."
+	listed = ", ".join(f"#{name}" for name in failed)
+	return (
+		f"Discord wouldn't open {listed} (it may be having problems): run /endgame "
+		"again to retry."
+	)
 
 
 class GameCommands(commands.Cog):
@@ -171,7 +187,7 @@ class GameCommands(commands.Cog):
 			if problems:
 				raise UserError(problems_text(problems))
 
-			await interaction.response.defer(ephemeral=True, thinking=True)
+			await defer(interaction, ephemeral=True, thinking=True)
 			control = await ops.ensure_server(guild, galaxy, self.roles)
 			await ops.reset_server(guild, galaxy, self.roles)
 			assert isinstance(interaction.user, discord.Member)
@@ -242,7 +258,7 @@ class GameCommands(commands.Cog):
 			ships, problems = validate_ship_files(files, galaxy)
 			if problems:
 				raise UserError(problems_text(problems))
-			await interaction.response.defer(ephemeral=True, thinking=True)
+			await defer(interaction, ephemeral=True, thinking=True)
 			await self.load_ships(guild, galaxy, ships, files)
 			self.galaxies.save(galaxy)
 		await reply(
@@ -268,7 +284,7 @@ class GameCommands(commands.Cog):
 			ship = galaxy.ship_by_name(ship_name)
 			if ship is None:
 				raise UserError(f'There is no ship named "{ship_name}".')
-			await interaction.response.defer(ephemeral=True, thinking=True)
+			await defer(interaction, ephemeral=True, thinking=True)
 			galaxy.remove_ship(ship.id)
 			await ops.place_council_and_brig(guild, galaxy)
 			await ops.delete_ship_channels(guild, galaxy, ship.id, delete_role=True)
@@ -300,7 +316,7 @@ class GameCommands(commands.Cog):
 				)
 				return
 			galaxy.player_limit = num
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			# Raising the limit admits people from the queue; lowering it boots nobody.
 			await ops.fill_lobby(guild, galaxy, self.roles)
 			self.galaxies.save(galaxy)
@@ -330,7 +346,10 @@ class GameCommands(commands.Cog):
 
 		if user is not None:
 			if not is_gm(interaction.user, self.roles):
-				raise UserError("Only control can make someone else a controller.")
+				raise UserError(
+					"Only control can make someone else a controller. To ask to become "
+					"control yourself, run /gm without a user."
+				)
 			if is_gm(user, self.roles):
 				raise UserError(f"{user.mention} is already a controller.")
 			await user.add_roles(control, reason=f"/gm by {interaction.user}")
@@ -391,20 +410,28 @@ class GameCommands(commands.Cog):
 			lobby = [
 				LobbyMember(member.id, frozenset(role.name for role in member.roles))
 				for user_id in galaxy.discord.admitted
-				if (member := guild.get_member(user_id)) is not None
+				if (member := guild.get_member(user_id)) is not None and not member.bot
 			]
 			players, left_out, notices = start_game(galaxy, lobby, self.roles)
-			await interaction.response.defer(ephemeral=True, thinking=True)
+			await defer(interaction, ephemeral=True, thinking=True)
 			for player in players:
 				player.pda_channel_id = galaxy.discord.pdas.get(player.discord_user_id)
 			for user_id in left_out:
 				await ops.delete_pda(guild, galaxy, user_id)
-			await ops.close_lobby(guild, galaxy)
+			waiting = await ops.keep_lobby_open(guild, galaxy, players)
 			await ops.set_role_permissions(guild, galaxy, self.roles)
 			self.galaxies.save(galaxy)
 			for player in players:
 				await ops.sync_player(guild, galaxy, player)
 			await ops.post_notices(guild, galaxy, notices)
+			if waiting:
+				await self._lobby_call(
+					guild,
+					galaxy,
+					"Still in the pregame lobby without a character: "
+					+ ", ".join(f"<@{user}>" for user in waiting)
+					+ ". Add them with /addplayer.",
+				)
 			await ops.update_fleet_status(guild, galaxy)
 			self.galaxies.save(galaxy)
 		await reply(
@@ -421,9 +448,14 @@ class GameCommands(commands.Cog):
 		assert guild is not None
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxies.get(guild.id)
-			if galaxy.state in (STATE_IDLE, STATE_ENDED):
+			if galaxy.state == STATE_IDLE:
 				raise UserError("No game in progress.")
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
+			if galaxy.state == STATE_ENDED:
+				# Already over: finish opening any channels Discord refused last time.
+				failed = await ops.open_to_everyone(guild, galaxy)
+				await reply(interaction, _opened(failed), ephemeral=True)
+				return
 			await ops.delete_start_message(guild, galaxy)
 			galaxy.discord.queue.clear()
 			if not galaxy.started:
@@ -446,13 +478,13 @@ class GameCommands(commands.Cog):
 			galaxy.state = STATE_ENDED
 			self.galaxies.save(galaxy)
 			await ops.delete_channels(guild, deleted)
-			await ops.open_to_everyone(guild, galaxy)
+			failed = await ops.open_to_everyone(guild, galaxy)
 			await ops.announce_everywhere(guild, galaxy, GAME_OVER)
 			await ops.refresh_fleet_status(guild, galaxy)
 		await reply(
 			interaction,
-			"The game has ended: every channel is open and only /status and /control "
-			"work. /startinitialization can be run again.",
+			"The game has ended: only /status and /control work. "
+			"/startinitialization can be run again. " + _opened(failed),
 			ephemeral=True,
 		)
 
@@ -550,7 +582,7 @@ class GameCommands(commands.Cog):
 			return None
 		galaxy = self.galaxies.get(payload.guild_id)
 		guild = self.bot.get_guild(payload.guild_id)
-		if guild is None or galaxy.state != STATE_INITIALIZING:
+		if guild is None or galaxy.state not in (STATE_INITIALIZING, STATE_IN_PROGRESS):
 			return None
 		if payload.message_id != galaxy.discord.start_message_id:
 			return None
@@ -569,12 +601,41 @@ class GameCommands(commands.Cog):
 			lobby = galaxy.discord
 			if member.id in lobby.queue or member.id in lobby.admitted:
 				return
+			if galaxy.started:
+				# Mid-game: straight into the lobby (no PDA until /addplayer).
+				if galaxy.player_by_user(member.id) is not None or is_gm(
+					member, self.roles
+				):
+					return
+				await ops.admit_to_lobby(guild, galaxy, member, pda=False)
+				self.galaxies.save(galaxy)
+				await self._lobby_call(
+					guild,
+					galaxy,
+					f"{member.mention} joined the pregame lobby mid-game. Add them "
+					"with /addplayer.",
+				)
+				return
 			if is_gm(member, self.roles):
 				await ops.admit_to_lobby(guild, galaxy, member)
 			else:
 				lobby.queue.append(member.id)
 				await ops.fill_lobby(guild, galaxy, self.roles)
 			self.galaxies.save(galaxy)
+
+	async def _lobby_call(
+		self, guild: discord.Guild, galaxy: Galaxy, text: str
+	) -> None:
+		"""A claimable alert about people waiting in the pregame lobby."""
+		chat = ops.get_channel(guild, galaxy, ch.CONTROL_CHAT)
+		if not isinstance(chat, discord.TextChannel):
+			return
+		pregame = ops.get_channel(guild, galaxy, ch.PREGAME_CHAT)
+		call = await chat.send(
+			text + ops.channel_link(pregame),
+			allowed_mentions=discord.AllowedMentions.none(),
+		)
+		await ops.offer_call(call)
 
 	@commands.Cog.listener()
 	async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):

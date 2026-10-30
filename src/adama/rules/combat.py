@@ -7,6 +7,7 @@ from adama.channels import crew_role_name
 from adama.models.galaxy import Coordinates, Galaxy
 from adama.models.player import LOCATION_BRIG, LOCATION_COMBAT, LOCATION_NONE, Player
 from adama.models.ship import Ship
+from adama.models.shuttle import Shuttle
 from adama.models.unit import Unit
 from adama.rules import (
 	BRIDGE,
@@ -396,6 +397,38 @@ def _check_unit_crew(galaxy: Galaxy, player: Player | None, unit: Unit) -> None:
 	raise GameError(f"Only crew of {ship} can move `{unit.id}` {unit.name}.")
 
 
+def _listed(units: list[Unit]) -> str:
+	return ", ".join(f"`{u.id}` {u.name}" for u in units)
+
+
+def load_units(
+	galaxy: Galaxy,
+	player: Player | None,
+	ship: Ship,
+	unit_ids: list[str],
+	shuttle_name: str | None,
+) -> list[Notice]:
+	"""/loadunit, for one or several units: all are loaded or none. `player` is None
+	when control runs it."""
+	units: list[Unit] = []
+	for unit_id in unit_ids:
+		unit = ship.units.get(unit_id.strip())
+		if unit is None:
+			raise GameError(f"There is no unit `{unit_id}` aboard the {ship.name}.")
+		if unit.exhausted:
+			raise GameError(f"`{unit.id}` {unit.name} is exhausted.")
+		_check_unit_crew(galaxy, player, unit)
+		units.append(unit)
+	shuttle = docked_shuttle(ship, shuttle_name)
+	for unit in units:
+		del ship.units[unit.id]
+		shuttle.units[unit.id] = unit
+	by = mention(player) if player else "Control"
+	return [
+		Notice(HANGAR, f"{by} loaded {_listed(units)} onto {shuttle.name}.", ship.id)
+	]
+
+
 def load_unit(
 	galaxy: Galaxy,
 	player: Player | None,
@@ -403,46 +436,48 @@ def load_unit(
 	unit_id: str,
 	shuttle_name: str | None,
 ) -> list[Notice]:
-	"""/loadunit. `player` is None when control runs it."""
-	unit = ship.units.get(unit_id.strip())
-	if unit is None:
-		raise GameError(f"There is no unit `{unit_id}` aboard the {ship.name}.")
-	if unit.exhausted:
-		raise GameError(f"`{unit.id}` {unit.name} is exhausted.")
-	_check_unit_crew(galaxy, player, unit)
-	shuttle = docked_shuttle(ship, shuttle_name)
-	del ship.units[unit.id]
-	shuttle.units[unit.id] = unit
-	by = mention(player) if player else "Control"
-	return [
-		Notice(
-			HANGAR,
-			f"{by} loaded `{unit.id}` {unit.name} onto {shuttle.name}.",
-			ship.id,
+	return load_units(galaxy, player, ship, [unit_id], shuttle_name)
+
+
+def unload_units(
+	galaxy: Galaxy, player: Player | None, ship: Ship, unit_ids: list[str]
+) -> list[Notice]:
+	"""/unloadunit: anyone aboard may unload any unit, whatever its affiliation. The unit
+	keeps its affiliation (e.g. a boarding party). All are unloaded or none."""
+	found: list[tuple[Shuttle, Unit]] = []
+	for unit_id in unit_ids:
+		unit_id = unit_id.strip()
+		match = next(
+			(
+				(shuttle, shuttle.units[unit_id])
+				for shuttle in ship.shuttles.values()
+				if unit_id in shuttle.units
+			),
+			None,
 		)
-	]
+		if match is None:
+			raise GameError(
+				f"There is no unit `{unit_id}` on a shuttle docked at the {ship.name}."
+			)
+		found.append(match)
+	by = mention(player) if player else "Control"
+	notices: list[Notice] = []
+	for shuttle in {id(s): s for s, _ in found}.values():
+		units = [u for s, u in found if s is shuttle]
+		for unit in units:
+			del shuttle.units[unit.id]
+			ship.units[unit.id] = unit
+		notices.append(
+			Notice(
+				HANGAR,
+				f"{by} unloaded {_listed(units)} from {shuttle.name}.",
+				ship.id,
+			)
+		)
+	return notices
 
 
 def unload_unit(
 	galaxy: Galaxy, player: Player | None, ship: Ship, unit_id: str
 ) -> list[Notice]:
-	"""/unloadunit: anyone aboard may unload any unit, whatever its affiliation. The unit
-	keeps its affiliation (e.g. a boarding party)."""
-	unit_id = unit_id.strip()
-	for shuttle in ship.shuttles.values():
-		unit = shuttle.units.get(unit_id)
-		if unit is None:
-			continue
-		del shuttle.units[unit.id]
-		ship.units[unit.id] = unit
-		by = mention(player) if player else "Control"
-		return [
-			Notice(
-				HANGAR,
-				f"{by} unloaded `{unit.id}` {unit.name} from {shuttle.name}.",
-				ship.id,
-			)
-		]
-	raise GameError(
-		f"There is no unit `{unit_id}` on a shuttle docked at the {ship.name}."
-	)
+	return unload_units(galaxy, player, ship, [unit_id])

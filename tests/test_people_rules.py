@@ -314,3 +314,21 @@ def test_brig_status_lists_prisoners():
 	assert "aboard the Aegis" in brig_status(g) and "nobody" in brig_status(g)
 	chars.brig(g, aboard(g, "0200", "0007"))
 	assert "**Currently brigged:** <@7>" in brig_status(g)
+
+
+def test_brig_refuses_players_at_other_coordinates():
+	g = galaxy()  # the brig is on the Aegis
+	g.ships["0200"].coordinates = "99999"
+	far = aboard(g, "0200")
+	with pytest.raises(GameError, match="/movebrig"):
+		chars.brig(g, far)
+	assert not far.brigged
+
+
+def test_moving_the_chambers_only_tells_control():
+	g = galaxy()
+	president = aboard(g, "0100")
+	president.president = True
+	other = next(s for s in g.ships.values() if s.id != g.council_chambers_ship)
+	change = council.relocate(g, president, other)
+	assert [n.target for n in change.notices] == [CONTROL]

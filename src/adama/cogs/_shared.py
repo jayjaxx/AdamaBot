@@ -113,7 +113,8 @@ class _CrewSelect(discord.ui.Select):
 
 
 class CrewPicker(discord.ui.View):
-	"""A pick-list of eligible crew. Only the user who opened it can use it."""
+	"""A pick-list of units (eligible crew by default). Only the user who opened it can
+	use it. `at_least` lets them pick between that many and `amount`."""
 
 	def __init__(
 		self,
@@ -122,13 +123,17 @@ class CrewPicker(discord.ui.View):
 		amount: int,
 		on_pick: OnPick,
 		galaxy: Galaxy,
+		*,
+		at_least: int | None = None,
+		placeholder: str | None = None,
 	):
 		super().__init__(timeout=180)
 		self.user_id = user_id
 		self.on_pick = on_pick
+		amount = min(amount, len(units), MAX_CHOICES)
 		self.select = _CrewSelect(
-			placeholder=f"Choose {amount} crew",
-			min_values=amount,
+			placeholder=placeholder or f"Choose {amount} crew",
+			min_values=amount if at_least is None else at_least,
 			max_values=amount,
 			options=[
 				discord.SelectOption(

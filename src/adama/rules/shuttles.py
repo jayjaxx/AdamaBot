@@ -9,7 +9,7 @@ from adama.rules import BRIDGE, HANGAR, PDA, GameError, Notice, isolation, sente
 from adama.rules.players import mention
 from adama.rules.resources import docked_shuttle
 
-LAUNCH_SECONDS = 10
+LAUNCH_SECONDS = 20
 
 
 def launch_by(galaxy: Galaxy, player: Player) -> Launch | None:
@@ -48,6 +48,10 @@ def cancel_player_launch(galaxy: Galaxy, player: Player, reason: str) -> list[No
 	return cancel_launch(galaxy, launch.shuttle_id, reason) if launch else []
 
 
+def _cleared(player: Player, shuttle: Shuttle) -> bool:
+	return shuttle.clearance or shuttle.id in player.clearances
+
+
 def _launch_problem(
 	galaxy: Galaxy, player: Player, origin: Ship, shuttle: Shuttle, dest: Ship
 ) -> str | None:
@@ -68,9 +72,7 @@ def _launch_problem(
 		return f"{origin.coordinates} is in lockdown: nobody can travel between ships."
 	if origin.jumping:
 		return f"the {origin.name} is preparing to jump."
-	if shuttle.intercepted and not (
-		shuttle.clearance or shuttle.id in player.clearances
-	):
+	if shuttle.intercepted and not _cleared(player, shuttle):
 		return (
 			f"{shuttle.name} has been intercepted and can't launch without clearance."
 		)
@@ -101,11 +103,15 @@ def launch(
 	shuttle.launching = True
 	started = Launch(shuttle.id, player.id, origin.id, dest.id)
 	galaxy.launches[shuttle.id] = started
+	if _cleared(player, shuttle):
+		how = "It has clearance, so it can't be intercepted unless that is revoked."
+	else:
+		how = "It can be stopped with /intercept."
 	return started, [
 		Notice(
 			HANGAR,
 			f"{mention(player)} is launching {shuttle.name} to the {dest.name} in "
-			f"{LAUNCH_SECONDS} seconds. It can be stopped with /intercept.",
+			f"{LAUNCH_SECONDS} seconds. {how}",
 			origin.id,
 		)
 	]
@@ -136,7 +142,9 @@ def complete_launch(galaxy: Galaxy, started: Launch) -> list[Notice]:
 
 	del galaxy.launches[shuttle.id]
 	shuttle.launching = False
+	# Interception and clearance belong to the ship it left.
 	shuttle.clearance = False
+	shuttle.intercepted = False
 	del origin.shuttles[shuttle.id]
 	dest.shuttles[shuttle.id] = shuttle
 	player.location = dest.id
@@ -205,19 +213,41 @@ def clearance(
 	]
 
 
-def revoke_shuttle(ship: Ship, shuttle_name: str | None) -> list[Notice]:
+def _cancel_uncleared(galaxy: Galaxy, shuttle_id: str) -> list[Notice]:
+	"""A launch relying on a clearance that was just revoked stops."""
+	launch = galaxy.launches.get(shuttle_id)
+	if launch is None:
+		return []
+	origin = galaxy.ships.get(launch.origin_id)
+	shuttle = origin.shuttles.get(shuttle_id) if origin else None
+	pilot = galaxy.players.get(launch.player_id)
+	if shuttle is None or pilot is None or _cleared(pilot, shuttle):
+		return []
+	return cancel_launch(galaxy, shuttle_id, "its clearance was revoked.")
+
+
+def revoke_shuttle(
+	galaxy: Galaxy, ship: Ship, shuttle_name: str | None
+) -> list[Notice]:
 	shuttle = docked_shuttle(ship, shuttle_name)
 	if not shuttle.clearance:
 		raise GameError(f"{shuttle.name} doesn't have clearance.")
 	shuttle.clearance = False
-	return [Notice(HANGAR, f"Clearance for {shuttle.name} has been revoked.", ship.id)]
+	return [
+		Notice(HANGAR, f"Clearance for {shuttle.name} has been revoked.", ship.id),
+		*_cancel_uncleared(galaxy, shuttle.id),
+	]
 
 
-def revoke_player(target: Player) -> list[Notice]:
+def revoke_player(galaxy: Galaxy, target: Player) -> list[Notice]:
 	if not target.clearances:
 		raise GameError(f"{mention(target)} has no clearances.")
+	revoked = list(target.clearances)
 	target.clearances.clear()
-	return [Notice(PDA, "Your shuttle clearances have been revoked.", target.id)]
+	notices = [Notice(PDA, "Your shuttle clearances have been revoked.", target.id)]
+	for shuttle_id in revoked:
+		notices += _cancel_uncleared(galaxy, shuttle_id)
+	return notices
 
 
 def shuttle_named(galaxy: Galaxy, name: str) -> tuple[Ship, Shuttle]:

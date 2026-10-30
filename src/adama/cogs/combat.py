@@ -5,12 +5,13 @@ from discord import app_commands
 from discord.ext import commands
 
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import (
 	HANGAR_OR_BRIDGE,
 	FIRST_RESPONDER_ONLY,
 	WHERE_SHIP,
 	WHERE_SHIP_UNIT_CREW,
+	CrewPicker,
 	choices,
 	player_of,
 	ship_for_channel,
@@ -73,7 +74,7 @@ class CombatCommands(commands.Cog):
 		assert guild is not None
 		self.galaxies.save(galaxy)
 		if not interaction.response.is_done():
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 		await ops.post_notices(guild, galaxy, notices, self.roles)
 		if sync:
 			await ops.sync_players(guild, galaxy, sync)
@@ -193,7 +194,7 @@ class CombatCommands(commands.Cog):
 				else galaxy.ship_by_name(AEGIS)
 			)
 			coords, change = combat_rules.lockdown(galaxy, coordinates, commanding)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			text, voice = await ops.create_combat_channels(
 				guild, galaxy, coords.coordinates, control
 			)
@@ -225,7 +226,7 @@ class CombatCommands(commands.Cog):
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxy(interaction)
 			change = combat_rules.end_lockdown(galaxy, coordinates)
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			# Deleting the combat VC disconnects everyone still in it.
 			await ops.delete_channels(guild, change.deleted_channels)
 			await self.finish(
@@ -314,42 +315,96 @@ class CombatCommands(commands.Cog):
 	def _mover(self, interaction: discord.Interaction, galaxy: Galaxy) -> Player | None:
 		return None if self.gm(interaction) else player_of(galaxy, interaction.user)
 
+	async def _pick_units(
+		self,
+		interaction: discord.Interaction,
+		units: list[Unit],
+		galaxy: Galaxy,
+		verb: str,
+		run,
+	) -> None:
+		"""Sends a menu of up to 25 units; picking some runs `run` with their IDs."""
+		if not units:
+			raise UserError(f"There are no units here you can {verb}.")
+		picker = CrewPicker(
+			interaction.user.id,
+			units,
+			len(units),
+			run,
+			galaxy,
+			at_least=1,
+			placeholder=f"Choose the units to {verb}",
+		)
+		await interaction.followup.send(
+			f"Choose the units to {verb}:", view=picker, ephemeral=True
+		)
+
 	@app_commands.command(
 		name="loadunit",
 		extras=WHERE_SHIP_UNIT_CREW,
-		description="Load a unit onto a docked shuttle",
+		description="Load units onto a docked shuttle (leave out unit to pick several)",
 	)
-	@app_commands.describe(shuttle="Leave out if only one shuttle is docked")
+	@app_commands.describe(
+		unit="Leave out to pick several from a menu",
+		shuttle="Leave out if only one shuttle is docked",
+	)
 	@app_commands.autocomplete(
 		unit=aboard_unit_autocomplete, shuttle=docked_autocomplete
 	)
 	async def loadunit(
-		self, interaction: discord.Interaction, unit: str, shuttle: str | None = None
+		self,
+		interaction: discord.Interaction,
+		unit: str | None = None,
+		shuttle: str | None = None,
 	):
 		assert interaction.guild is not None
-		async with self.galaxies.lock(interaction.guild.id):
-			galaxy, ship = self._hangar(interaction)
-			notices = combat_rules.load_unit(
-				galaxy, self._mover(interaction, galaxy), ship, unit, shuttle
-			)
-			await self.finish(interaction, galaxy, notices, "Unit loaded.", fleet=True)
+
+		async def run(i: discord.Interaction, unit_ids: list[str]) -> None:
+			assert i.guild is not None
+			async with self.galaxies.lock(i.guild.id):
+				galaxy, ship = self._hangar(i)
+				notices = combat_rules.load_units(
+					galaxy, self._mover(i, galaxy), ship, unit_ids, shuttle
+				)
+				done = "Unit loaded." if len(unit_ids) == 1 else "Units loaded."
+				await self.finish(i, galaxy, notices, done, fleet=True)
+
+		if unit is not None:
+			await run(interaction, [unit])
+			return
+		galaxy, ship = self._hangar(interaction)
+		movable = self._may_move(interaction, galaxy)
+		units = [u for u in ship.units.values() if not u.exhausted and movable(u)]
+		await self._pick_units(interaction, units, galaxy, "load", run)
 
 	@app_commands.command(
 		name="unloadunit",
 		extras=WHERE_SHIP,
-		description="Unload a unit from a docked shuttle onto this ship",
+		description="Unload units from docked shuttles (leave out unit to pick several)",
 	)
+	@app_commands.describe(unit="Leave out to pick several from a menu")
 	@app_commands.autocomplete(unit=shuttle_unit_autocomplete)
-	async def unloadunit(self, interaction: discord.Interaction, unit: str):
+	async def unloadunit(
+		self, interaction: discord.Interaction, unit: str | None = None
+	):
 		assert interaction.guild is not None
-		async with self.galaxies.lock(interaction.guild.id):
-			galaxy, ship = self._hangar(interaction)
-			notices = combat_rules.unload_unit(
-				galaxy, self._mover(interaction, galaxy), ship, unit
-			)
-			await self.finish(
-				interaction, galaxy, notices, "Unit unloaded.", fleet=True
-			)
+
+		async def run(i: discord.Interaction, unit_ids: list[str]) -> None:
+			assert i.guild is not None
+			async with self.galaxies.lock(i.guild.id):
+				galaxy, ship = self._hangar(i)
+				notices = combat_rules.unload_units(
+					galaxy, self._mover(i, galaxy), ship, unit_ids
+				)
+				done = "Unit unloaded." if len(unit_ids) == 1 else "Units unloaded."
+				await self.finish(i, galaxy, notices, done, fleet=True)
+
+		if unit is not None:
+			await run(interaction, [unit])
+			return
+		galaxy, ship = self._hangar(interaction)
+		units = [u for s in ship.shuttles.values() for u in s.units.values()]
+		await self._pick_units(interaction, units, galaxy, "unload", run)
 
 	# /unit (control)
 

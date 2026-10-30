@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from adama import channels as ch
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import (
 	HANGAR_OR_BRIDGE,
 	WHERE_BRIDGE,
@@ -80,7 +80,7 @@ class TravelCommands(commands.Cog):
 		assert interaction.guild is not None
 		self.galaxies.save(galaxy)
 		if not interaction.response.is_done():
-			await interaction.response.defer(ephemeral=ephemeral)
+			await defer(interaction, ephemeral=ephemeral)
 		await ops.post_notices(interaction.guild, galaxy, notices)
 		if fleet and galaxy.started:
 			await ops.update_fleet_status(interaction.guild, galaxy)
@@ -248,9 +248,9 @@ class TravelCommands(commands.Cog):
 			if player is not None:
 				if shuttle is not None:
 					raise UserError("Give a shuttle or a player, not both.")
-				notices = shuttle_rules.revoke_player(player_of(galaxy, player))
+				notices = shuttle_rules.revoke_player(galaxy, player_of(galaxy, player))
 			else:
-				notices = shuttle_rules.revoke_shuttle(ship, shuttle)
+				notices = shuttle_rules.revoke_shuttle(galaxy, ship, shuttle)
 			await self.finish(interaction, galaxy, notices, "Clearance revoked.")
 
 	@app_commands.command(
@@ -390,7 +390,7 @@ class TravelCommands(commands.Cog):
 		ship = ship_here(
 			galaxy, interaction, ch.SHIP_BRIDGE, gm=self.gm(interaction), crew=True
 		)
-		await reply(interaction, jump_rules.check_coords(ship))
+		await reply(interaction, jump_rules.check_coords(ship), ephemeral=True)
 
 	@app_commands.command(
 		name="subcoords",

@@ -6,6 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from adama import channels as ch
+from adama.access import managed_channels
 from adama.config import GlobalConfig
 from adama.constants import _BOT_EXTENSION_DIRECTORY, _BOT_EXTENSION_MODULE
 from adama.container import Container
@@ -57,6 +58,37 @@ def destroyed_reason(galaxy: Galaxy, player: Player, command: str | None) -> str
 	return DESTROYED_SHIP if ship is not None and ship.destroyed else None
 
 
+def describe_command(interaction: discord.Interaction, outcome: str) -> str:
+	"""One log line: who ran what, where, how it went and how long it took (from
+	Discord receiving it to now). Never raises: logging mustn't break a command."""
+	try:
+		command = interaction.command
+		name = command.qualified_name if command else "?"
+		options = " ".join(
+			f"{key}={getattr(value, 'name', value)}"
+			for key, value in interaction.namespace
+		)
+		channel = getattr(interaction.channel, "name", interaction.channel_id)
+		ms = (discord.utils.utcnow() - interaction.created_at).total_seconds() * 1000
+		user = interaction.user
+	except Exception:
+		return f"A command: {outcome}"
+	return (
+		f"{user.name} ({user.id}) ran /{name}"
+		+ (f" {options}" if options else "")
+		+ f" in #{channel}: {outcome} ({ms:.0f} ms)"
+	)
+
+
+def targets_bot(interaction: discord.Interaction) -> bool:
+	"""Whether a user option names a bot (ADAMA included): bots can't be players,
+	office holders or controllers."""
+	return any(
+		isinstance(value, (discord.Member, discord.User)) and value.bot
+		for _, value in interaction.namespace
+	)
+
+
 def is_blind(interaction: discord.Interaction) -> bool:
 	"""Whether the bot ignores commands in this channel: some text channels and every VC."""
 	channel = interaction.channel
@@ -67,6 +99,20 @@ def is_blind(interaction: discord.Interaction) -> bool:
 		return False
 	command = interaction.command.name if interaction.command else None
 	return not (name == "starting-games" and command in STARTING_GAMES_COMMANDS)
+
+
+def is_known_channel(galaxy: Galaxy, channel_id: int | None) -> bool:
+	"""Channels ADAMA made or set up: its permanent channels, ship and combat channels
+	and PDAs. It ignores commands anywhere else (e.g. a channel someone added
+	mid-game). Before the server is set up, nothing is known, so nothing is refused."""
+	if not galaxy.discord.channels:
+		return True
+	known = (
+		managed_channels(galaxy)
+		| set(galaxy.discord.channels.values())
+		| set(galaxy.discord.pdas.values())
+	)
+	return channel_id in known
 
 
 def hide_from_players(command) -> None:
@@ -94,12 +140,31 @@ async def reply(
 			)
 
 
+# Commands whose replies everyone in the channel sees (/status too, in a PDA).
+PUBLIC_COMMANDS = {"roll"}
+
+
+def replies_publicly(galaxy: Galaxy, interaction: discord.Interaction) -> bool:
+	command = interaction.command.name if interaction.command else None
+	if command == "status":
+		return interaction.channel_id in galaxy.discord.pdas.values()
+	return command in PUBLIC_COMMANDS
+
+
+async def defer(interaction: discord.Interaction, *, ephemeral: bool = True, **kwargs):
+	"""Acknowledges the interaction unless that's already been done (every command is
+	acknowledged as soon as it arrives; see AdamaTree.interaction_check)."""
+	if not interaction.response.is_done():
+		await interaction.response.defer(ephemeral=ephemeral, **kwargs)
+
+
 async def refuse(interaction: discord.Interaction, text: str) -> None:
 	"""Turns an interaction away. While the user is still typing (autocomplete) Discord
 	only accepts suggestions, so they get none; the reason is shown if they send it."""
 	if interaction.type == discord.InteractionType.autocomplete:
 		await interaction.response.autocomplete([])
 	else:
+		logger.info(describe_command(interaction, f"refused ({text})"))
 		await reply(interaction, text, ephemeral=True)
 
 
@@ -111,20 +176,28 @@ class AdamaTree(app_commands.CommandTree):
 		if is_blind(interaction):
 			await refuse(interaction, "ADAMA doesn't take commands in this channel.")
 			return False
+		if (
+			interaction.type == discord.InteractionType.application_command
+			and targets_bot(interaction)
+		):
+			await refuse(interaction, "Bots can't be players or controllers.")
+			return False
 		bot = interaction.client
 		if not isinstance(bot, AdamaBot):
 			return True
 		galaxy = bot.container.services.galaxy.get(interaction.guild.id)
+		if not is_known_channel(galaxy, interaction.channel_id):
+			await refuse(interaction, "ADAMA doesn't take commands in this channel.")
+			return False
 		command = interaction.command.name if interaction.command else None
 		if galaxy.state == STATE_ENDED:
-			if command in ENDED_COMMANDS:
-				return True
-			await refuse(
-				interaction,
-				"The game is over: only /status and /control work until a new game is set up.",
-			)
-			return False
-		if not is_gm(interaction.user, bot.config.roles):
+			if command not in ENDED_COMMANDS:
+				await refuse(
+					interaction,
+					"The game is over: only /status and /control work until a new game is set up.",
+				)
+				return False
+		elif not is_gm(interaction.user, bot.config.roles):
 			player = galaxy.player_by_user(interaction.user.id)
 			if player is not None:
 				reason = restricted_reason(
@@ -133,6 +206,13 @@ class AdamaTree(app_commands.CommandTree):
 				if reason is not None:
 					await refuse(interaction, reason)
 					return False
+		# Answer Discord at once: a command waiting for the game lock (or slowed by
+		# rate limits) would otherwise miss the 3-second deadline ("Unknown
+		# interaction"). Whether the reply is private is decided now.
+		if interaction.type == discord.InteractionType.application_command:
+			await defer(
+				interaction, ephemeral=not replies_publicly(galaxy, interaction)
+			)
 		return True
 
 	async def on_error(
@@ -141,11 +221,12 @@ class AdamaTree(app_commands.CommandTree):
 		original = getattr(error, "original", error)
 		if isinstance(original, (UserError, GameError)):
 			message = str(original)
+			logger.info(describe_command(interaction, f"refused ({message})"))
 		elif isinstance(error, app_commands.CheckFailure):
 			message = str(error) or "You can't use this command here."
+			logger.info(describe_command(interaction, f"refused ({message})"))
 		else:
-			name = interaction.command.name if interaction.command else "?"
-			logger.exception("Error in /%s", name, exc_info=error)
+			logger.exception(describe_command(interaction, "crashed"), exc_info=error)
 			message = (
 				"Something went wrong running that command. The error has been logged."
 			)
@@ -218,8 +299,7 @@ class AdamaBot(commands.Bot):
 	async def on_app_command_completion(
 		self, interaction: discord.Interaction, command
 	):
-		time_taken = discord.utils.utcnow() - interaction.created_at
-		logger.info(f"{interaction.user.name} ran /{command.name} in {time_taken}")
+		logger.info(describe_command(interaction, "done"))
 
 	async def announce_shutdown(self) -> None:
 		"""Posts in each server's #control-broadcasts that the bot is going down, pinging

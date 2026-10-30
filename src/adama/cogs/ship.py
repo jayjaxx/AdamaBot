@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from adama import channels as ch
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import (
 	HANGAR_OR_BRIDGE,
 	WHERE_BRIDGE,
@@ -89,7 +89,7 @@ class ShipCommands(commands.Cog):
 		assert interaction.guild is not None
 		self.galaxies.save(galaxy)
 		if not interaction.response.is_done():
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 		await ops.post_notices(interaction.guild, galaxy, notices)
 		if fleet and galaxy.started:
 			await ops.update_fleet_status(interaction.guild, galaxy)
@@ -343,7 +343,7 @@ class ShipCommands(commands.Cog):
 				f'Not enough available crew matching "{cost.crew_keyword}": need {cost.crew_amount}, have {len(units)}.'
 			)
 		picker = CrewPicker(interaction.user.id, units, cost.crew_amount, run, galaxy)
-		await interaction.response.send_message(
+		await interaction.followup.send(
 			f"Choose {cost.crew_amount} crew for `{station.id}` {station.name}:",
 			view=picker,
 			ephemeral=True,
@@ -439,8 +439,8 @@ class ShipCommands(commands.Cog):
 		assert interaction.guild is not None
 		async with self.galaxies.lock(interaction.guild.id):
 			galaxy = self.galaxy(interaction)
-			notices = st_rules.damage(galaxy, target, self.rng)
-			await self.finish(interaction, galaxy, notices, "Damaged.")
+			done, notices = st_rules.damage(galaxy, target, self.rng)
+			await self.finish(interaction, galaxy, notices, done)
 
 	@app_commands.command(
 		name="undamage",
@@ -566,7 +566,7 @@ class ShipCommands(commands.Cog):
 					fleet=False,
 				)
 				return
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 			if result.unsealed and galaxy.council_chambers_ship:
 				for player in galaxy.players.values():
 					if player.location == galaxy.council_chambers_ship:

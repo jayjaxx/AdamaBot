@@ -6,7 +6,12 @@ from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_BRIG, LOCATION_NONE, Player
 from adama.models.ship import Ship
 from adama.rules import BRIG, CONTROL, HANGAR, PDA, GameError, Notice
-from adama.rules.players import current_ship, healing_ship, mention
+from adama.rules.players import (
+	combat_coordinates,
+	current_ship,
+	healing_ship,
+	mention,
+)
 from adama.rules.shuttles import cancel_player_launch
 from adama.rules.stations import SICKBAY
 from adama.status import location_name
@@ -176,8 +181,15 @@ def brig(galaxy: Galaxy, player: Player) -> list[Notice]:
 	if player.brigged:
 		raise GameError(f"{mention(player)} is already in the brig.")
 	ship = _brig_ship(galaxy)
-	notices = cancel_player_launch(galaxy, player, "its pilot was arrested.")
 	origin = current_ship(galaxy, player)
+	here = combat_coordinates(galaxy, player) or (origin and origin.coordinates)
+	if here and here != ship.coordinates:
+		raise GameError(
+			f"{mention(player)} is at {here} but the brig (aboard the {ship.name}) is "
+			f"at {ship.coordinates}. Move the brig with /movebrig, or the player with "
+			"/teleportplayer, first."
+		)
+	notices = cancel_player_launch(galaxy, player, "its pilot was arrested.")
 	if origin is not None and player.location != LOCATION_BRIG:
 		notices.append(Notice(HANGAR, f"{mention(player)} is leaving.", origin.id))
 	player.clearances.clear()

@@ -317,8 +317,9 @@ def _random_station(
 	return rng.choice(candidates) if candidates else None
 
 
-def damage(galaxy: Galaxy, target: str, rng: random.Random) -> list[Notice]:
-	"""/damage: a station by ID, or a random undamaged station (usable or not) on a ship."""
+def damage(galaxy: Galaxy, target: str, rng: random.Random) -> tuple[str, list[Notice]]:
+	"""/damage: a station by ID, or a random undamaged station (usable or not) on a ship.
+	Returns control's reply, naming the station, and the notices."""
 	if target.isdigit():
 		ship, station = find_station(galaxy, target)
 		if station.damaged:
@@ -330,9 +331,8 @@ def damage(galaxy: Galaxy, target: str, rng: random.Random) -> list[Notice]:
 		ship = found
 		picked = _random_station(ship, rng, without_riot=False)
 		if picked is None:
-			return [
-				Notice(CONTROL, f"Every station on the {ship.name} is already damaged.")
-			]
+			full = f"Every station on the {ship.name} is already damaged."
+			return full, [Notice(CONTROL, full)]
 		station = picked
 
 	station.damaged = True
@@ -361,7 +361,7 @@ def damage(galaxy: Galaxy, target: str, rng: random.Random) -> list[Notice]:
 				links=((BRIDGE, ship.id),),
 			)
 		)
-	return notices
+	return f"Damaged `{station.id}` {station.name} on the {ship.name}.", notices
 
 
 def riot_at(ship: Ship, station: Station) -> list[Notice]:

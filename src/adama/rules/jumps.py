@@ -51,8 +51,17 @@ def _damaged(ship: Ship, name: str) -> bool:
 	return any(s.name == name and s.damaged for s in ship.stations.values())
 
 
-def set_coords(ship: Ship, coordinates: str) -> list[Notice]:
+def _not_here(ship: Ship, coordinates: str) -> str:
 	coordinates = check_coordinates(coordinates)
+	if coordinates == ship.coordinates:
+		raise GameError(
+			f"The {ship.name} is already at {coordinates}: pick other coordinates."
+		)
+	return coordinates
+
+
+def set_coords(ship: Ship, coordinates: str) -> list[Notice]:
+	coordinates = _not_here(ship, coordinates)
 	if ship.jumping:
 		raise GameError("The ship is jumping. /abort the jump first.")
 	ship.next_coordinates = coordinates
@@ -215,9 +224,10 @@ def move_ship(galaxy: Galaxy, ship: Ship, destination: str, reason: str) -> Ship
 	galaxy.get_or_create_coordinates(destination)
 	ship.coordinates = destination
 	for other in galaxy.ships_at(origin):
-		moved.notices.append(
-			Notice(HANGAR, f"The {ship.name} has jumped away.", other.id)
-		)
+		for target in (HANGAR, BRIDGE):
+			moved.notices.append(
+				Notice(target, f"The {ship.name} has jumped away.", other.id)
+			)
 	for other in galaxy.ships_at(destination):
 		if other.id != ship.id:
 			moved.notices.append(
@@ -284,7 +294,7 @@ def teleport_ship(galaxy: Galaxy, ship: Ship, coordinates: str) -> ShipMoved:
 
 
 def sub_coords(ship: Ship, coordinates: str) -> str:
-	ship.sabotage_coordinates = check_coordinates(coordinates)
+	ship.sabotage_coordinates = _not_here(ship, coordinates)
 	return f"The {ship.name}'s next jump will go to {ship.sabotage_coordinates}. The crew isn't told."
 
 

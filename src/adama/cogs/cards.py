@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from adama import channels as ch
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import (
 	WHERE_BRIDGE,
 	choices,
@@ -61,7 +61,7 @@ class CardCommands(commands.Cog):
 		assert interaction.guild is not None
 		self.galaxies.save(galaxy)
 		if not interaction.response.is_done():
-			await interaction.response.defer(ephemeral=True)
+			await defer(interaction, ephemeral=True)
 		await ops.post_notices(interaction.guild, galaxy, notices, self.roles)
 		await reply(interaction, done, ephemeral=True)
 

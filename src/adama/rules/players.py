@@ -361,3 +361,18 @@ def locate(galaxy: Galaxy, player: Player, target: Player) -> str:
 	if target.location == LOCATION_BRIG:
 		return f"{mention(target)} is in the brig aboard the {there.name}."
 	return f"{mention(target)} is aboard the {there.name}."
+
+
+def locate_for_control(galaxy: Galaxy, target: Player) -> str:
+	"""/locate run by control: anyone, anywhere."""
+	if target.dead:
+		return f"{mention(target)} is dead."
+	there = current_ship(galaxy, target)
+	if there is None:
+		return f"{mention(target)} has no location."
+	coords = combat_coordinates(galaxy, target) or there.coordinates
+	if target.location == LOCATION_COMBAT:
+		return f"{mention(target)} is in combat at {coords} (from the {there.name})."
+	if target.location == LOCATION_BRIG:
+		return f"{mention(target)} is in the brig aboard the {there.name} ({coords})."
+	return f"{mention(target)} is aboard the {there.name} ({coords})."

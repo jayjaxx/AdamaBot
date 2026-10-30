@@ -95,18 +95,16 @@ def relocate(galaxy: Galaxy, player: Player | None, ship: Ship) -> CouncilChange
 		raise GameError(f"The chambers are already on the {ship.name}.")
 	old = galaxy.council_chambers_ship
 	galaxy.council_chambers_ship = ship.id
-	change = CouncilChange(resync=_aboard(galaxy, old, ship.id))
-	change.notices = [
-		Notice(PDA, f"The council chambers have moved to the {ship.name}.", member.id)
-		for member in _council(galaxy)
-	]
-	change.notices.append(
-		Notice(
-			CONTROL,
-			f"{_by(player)} moved the council chambers to the {ship.name}.",
-		)
+	# Only control is told: the move itself is no announcement.
+	return CouncilChange(
+		[
+			Notice(
+				CONTROL,
+				f"{_by(player)} moved the council chambers to the {ship.name}.",
+			)
+		],
+		_aboard(galaxy, old, ship.id),
 	)
-	return change
 
 
 def seal(galaxy: Galaxy, player: Player | None) -> CouncilChange:

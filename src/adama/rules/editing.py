@@ -284,10 +284,14 @@ def destroy_ship(galaxy: Galaxy, ship: Ship) -> list[Notice]:
 	notices = cancel_launches_for_ship(galaxy, ship, reason)
 	galaxy.jumps.pop(ship.id, None)
 	ship.jumping = False
+	destroyed = f"**The {ship.name} has been destroyed.**"
 	for other in galaxy.ships_at(ship.coordinates):
-		notices.append(
-			Notice(HANGAR, f"**The {ship.name} has been destroyed.**", other.id)
-		)
+		notices.append(Notice(HANGAR, destroyed, other.id))
+		notices.append(Notice(BRIDGE, destroyed, other.id))
+	if galaxy.brig_ship == ship.id:
+		notices.append(Notice(BRIG, destroyed))
+	if galaxy.council_chambers_ship == ship.id:
+		notices.append(Notice(COUNCIL, destroyed))
 	people = [
 		p
 		for p in galaxy.players.values()

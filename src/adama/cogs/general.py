@@ -8,7 +8,7 @@ from discord.ext import commands
 
 from adama import channels as ch
 from adama import discord_ops as ops
-from adama.bot import AdamaBot, reply
+from adama.bot import AdamaBot, defer, reply
 from adama.cogs._shared import OFFICES, ship_for_channel
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_COMBAT, Player
@@ -53,12 +53,13 @@ class GeneralCommands(commands.Cog):
 
 	@app_commands.command(name="ping", description="Say hello to the bot!")
 	async def ping(self, interaction: discord.Interaction):
-		await interaction.response.send_message(f"Hello, {interaction.user.mention}!")
+		await reply(interaction, f"Hello, {interaction.user.mention}!", ephemeral=True)
 
 	@app_commands.command(name="roll", description="Roll 1d6")
 	async def roll(self, interaction: discord.Interaction):
-		await interaction.response.send_message(
-			f"{interaction.user.mention} rolled a **{random.randint(1, 6)}**."
+		await reply(
+			interaction,
+			f"{interaction.user.mention} rolled a **{random.randint(1, 6)}**.",
 		)
 
 	@app_commands.command(
@@ -150,7 +151,11 @@ class GeneralCommands(commands.Cog):
 			ship_id = found[0].id
 		if not ship_id or ship_id not in galaxy.ships:
 			raise UserError("You aren't anywhere yet.")
-		await reply(interaction, fleet_list(galaxy, galaxy.ships[ship_id].coordinates))
+		await reply(
+			interaction,
+			fleet_list(galaxy, galaxy.ships[ship_id].coordinates),
+			ephemeral=True,
+		)
 
 	@app_commands.command(
 		name="control", description="Summon control, optionally with a message"
@@ -246,19 +251,27 @@ class GeneralCommands(commands.Cog):
 	@app_commands.command(name="help", description="List the commands you can use")
 	@app_commands.rename(which="list")
 	@app_commands.describe(
-		which="Control only: which list to show (players by default)"
+		which="Which list to show (players by default): your office's, or any for control"
 	)
 	@app_commands.choices(which=HELP_CHOICES)
 	async def help(self, interaction: discord.Interaction, which: str = HELP_PLAYERS):
 		guild = interaction.guild
 		assert guild is not None
 		galaxy = self.galaxy(interaction)
-		if which != HELP_PLAYERS and not is_gm(interaction.user, self.roles):
-			raise UserError("Only control can pick a different command list.")
 		player = galaxy.player_by_user(interaction.user.id)
-		text = self.command_list(which, self.offices_held(player, interaction.user))
+		held = self.offices_held(player, interaction.user)
+		# Office holders may pick their own office's list; control may pick any.
+		if (
+			which != HELP_PLAYERS
+			and which not in held
+			and not is_gm(interaction.user, self.roles)
+		):
+			raise UserError(
+				"You can only pick the list of an office you hold. Control can pick any."
+			)
+		text = self.command_list(which, held)
 		# The full list is several messages: answer Discord before sending them.
-		await interaction.response.defer(ephemeral=True)
+		await defer(interaction, ephemeral=True)
 		pda = guild.get_channel(galaxy.discord.pdas.get(interaction.user.id, 0))
 		if isinstance(pda, discord.TextChannel):
 			await ops.send_long(pda, text)

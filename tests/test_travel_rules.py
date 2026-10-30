@@ -109,9 +109,9 @@ def test_intercept_and_clearance():
 	assert blackbird.clearance and not blackbird.intercepted
 	with pytest.raises(GameError, match="has clearance"):
 		sh.intercept(g, guard, aegis, "Blackbird", "@guard")
-	sh.revoke_shuttle(aegis, "Blackbird")
+	sh.revoke_shuttle(g, aegis, "Blackbird")
 	assert not blackbird.clearance
-	sh.revoke_player(pilot)
+	sh.revoke_player(g, pilot)
 	assert not pilot.clearances
 
 
@@ -233,3 +233,59 @@ def test_teleport_ship_and_isolation():
 	moved = jumps.teleport_ship(g, aegis, "44444")
 	assert aegis.coordinates == "44444" and aegis.resources.fuel == 8
 	assert any(n.id == "0200" for n in moved.notices)
+
+
+def test_clearance_launches_say_so_and_stop_when_revoked():
+	g = galaxy()
+	aegis = g.ships["0100"]
+	pilot, guard = aboard(g, "0100"), aboard(g, "0100", "0002")
+	cyclops = aegis.shuttles["0101"]
+	sh.intercept(g, guard, aegis, "Cyclops", "@guard")
+	sh.clearance(aegis, "Cyclops", pilot)
+	started, notices = sh.launch(g, pilot, aegis, "Cyclops", "Dione")
+	assert "has clearance" in notices[0].text and notices[0].id == "0100"
+	notices = sh.revoke_player(g, pilot)
+	assert not g.launches and not cyclops.launching
+	assert any("clearance was revoked" in n.text for n in notices)
+
+	sh.clearance(aegis, "Cyclops", None)
+	sh.launch(g, pilot, aegis, "Cyclops", "Dione")
+	sh.revoke_shuttle(g, aegis, "Cyclops")
+	assert not g.launches
+
+
+def test_interception_stays_behind_at_the_ship_it_left():
+	g = galaxy()
+	aegis, dione = g.ships["0100"], g.ships["0200"]
+	pilot, guard = aboard(g, "0100"), aboard(g, "0100", "0002")
+	sh.intercept(g, guard, aegis, "Cyclops", "@guard")
+	sh.clearance(aegis, "Cyclops", pilot)
+	started, _ = sh.launch(g, pilot, aegis, "Cyclops", "Dione")
+	sh.complete_launch(g, started)
+	assert not dione.shuttles["0101"].intercepted
+
+
+def test_coordinates_must_differ_from_the_ship_s():
+	g = galaxy()
+	aegis = g.ships["0100"]
+	with pytest.raises(GameError, match="already at"):
+		jumps.set_coords(aegis, aegis.coordinates)
+	with pytest.raises(GameError, match="already at"):
+		jumps.sub_coords(aegis, aegis.coordinates)
+
+
+def test_bridges_hear_a_ship_jump_away():
+	g = galaxy()
+	aegis, dione = g.ships["0100"], g.ships["0200"]
+	moved = jumps.teleport_ship(g, dione, "99999")
+	assert {n.target for n in moved.notices if n.id == aegis.id} >= {HANGAR, BRIDGE}
+
+
+def test_control_can_locate_anyone():
+	g = galaxy()
+	p = aboard(g, "0100")
+	assert pl.locate_for_control(g, p) == (
+		f"<@1> is aboard the Aegis ({g.ships['0100'].coordinates})."
+	)
+	p.dead = True
+	assert pl.locate_for_control(g, p) == "<@1> is dead."
