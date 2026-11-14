@@ -691,6 +691,7 @@ async def give_pda(
 	existing = guild.get_channel(galaxy.discord.pdas.get(member.id, 0))
 	if isinstance(existing, discord.TextChannel):
 		await existing.set_permissions(member, overwrite=PDA_ACCESS)
+		await rename_pda(guild, galaxy, member)
 		return existing
 	if len(galaxy.discord.pdas) >= ch.MAX_PDAS:
 		stale = stale_pda_owner(galaxy)
@@ -700,7 +701,7 @@ async def give_pda(
 				await old.delete(reason="ADAMA: making room for a new PDA")
 	category = await _pda_category(guild, galaxy)
 	pda = await guild.create_text_channel(
-		f"pda-{member.name}",
+		ch.pda_name(member.display_name, member.name),
 		category=category,
 		overwrites={
 			guild.default_role: discord.PermissionOverwrite(view_channel=False),
@@ -712,6 +713,25 @@ async def give_pda(
 		f"{member.mention}, this is your PDA: your private notebook. Control can message you here."
 	)
 	return pda
+
+
+async def rename_pda(
+	guild: discord.Guild, galaxy: Galaxy, member: discord.Member
+) -> None:
+	"""Keeps a PDA's name in step with its owner's nickname. Discord allows two renames
+	per channel every ten minutes, so a burst of nickname changes can be slow to show:
+	the name is read again just before renaming, so the latest one wins."""
+	pda = guild.get_channel(galaxy.discord.pdas.get(member.id, 0))
+	if not isinstance(pda, discord.TextChannel):
+		return
+	current = guild.get_member(member.id) or member
+	name = ch.pda_name(current.display_name, current.name)
+	if pda.name == name:
+		return
+	try:
+		await pda.edit(name=name, reason="ADAMA: PDA owner's nickname changed")
+	except discord.HTTPException:
+		logger.warning("Couldn't rename %s's PDA to %s", member, name)
 
 
 async def admit_to_lobby(

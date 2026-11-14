@@ -650,3 +650,14 @@ def test_commands_only_work_in_known_channels():
 	assert is_known_channel(galaxy, 700)
 	assert is_known_channel(galaxy, 800)
 	assert not is_known_channel(galaxy, 5)  # e.g. a channel added mid-game
+
+
+def test_pda_names_are_safe_channel_names():
+	from adama.channels import pda_name
+
+	assert pda_name("Kara Thrace", "starbuck99") == "pda-kara-thrace"
+	assert pda_name("Zoë  O'Neil!!", "x") == "pda-zoe-o-neil"
+	assert pda_name("🐺🐺", "Wolf_Pack") == "pda-wolf_pack"  # nothing left: username
+	assert pda_name("🐺", "🐺") == "pda-player"
+	long = pda_name("a" * 200, "x")
+	assert len(long) == 100 and long.startswith("pda-a")

@@ -4,6 +4,8 @@ Ship channels are made per ship (see `ship_channel_names`), PDAs per player, and
 channels per locked-down coordinates.
 """
 
+import re
+import unicodedata
 from dataclasses import dataclass
 
 TEXT = "text"
@@ -144,6 +146,25 @@ def ship_channel_names(ship_name: str) -> dict[str, tuple[str, str]]:
 		"vc_shadowy_corner": (VOICE, f"{ship_name} Shadowy Corner"),
 		"vc_disused_compartment": (VOICE, f"{ship_name} Disused Compartment"),
 	}
+
+
+MAX_CHANNEL_NAME = 100
+
+
+def _channel_safe(text: str) -> str:
+	"""Lowercase letters, digits, - and _ only: accents are dropped, and spaces and
+	anything else become single dashes."""
+	ascii_text = (
+		unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+	)
+	return re.sub(r"[^a-z0-9_]+", "-", ascii_text.lower()).strip("-_")
+
+
+def pda_name(display_name: str, username: str) -> str:
+	"""A PDA's channel name, from the member's server nickname (or display name). Falls
+	back to their username if nothing usable is left, e.g. an all-emoji nickname."""
+	name = _channel_safe(display_name) or _channel_safe(username) or "player"
+	return f"pda-{name}"[:MAX_CHANNEL_NAME].rstrip("-_")
 
 
 def crew_role_name(ship_name: str) -> str:

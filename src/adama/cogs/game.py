@@ -567,6 +567,25 @@ class GameCommands(commands.Cog):
 				allowed_mentions=discord.AllowedMentions.none(),
 			)
 
+	# PDAs are named after their owner's nickname (or display name), kept up to date.
+
+	@commands.Cog.listener()
+	async def on_member_update(self, before: discord.Member, after: discord.Member):
+		if before.display_name != after.display_name:
+			galaxy = self.galaxies.get(after.guild.id)
+			await ops.rename_pda(after.guild, galaxy, after)
+
+	@commands.Cog.listener()
+	async def on_user_update(self, before: discord.User, after: discord.User):
+		"""A changed global display name shows in every server where the member has
+		no server nickname."""
+		if before.display_name == after.display_name and before.name == after.name:
+			return
+		for guild in self.bot.guilds:
+			member = guild.get_member(after.id)
+			if member is not None and member.nick is None:
+				await ops.rename_pda(guild, self.galaxies.get(guild.id), member)
+
 	# Pregame lobby: reacting to the message in #starting-games joins the queue.
 
 	def _lobby_galaxy(
