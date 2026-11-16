@@ -12,6 +12,7 @@ from adama.rules.players import (
 	healing_ship,
 	start_of_turn_reminder,
 )
+from adama.rules import prisoner_labour
 from adama.rules.stations import AEGIS, random_riot
 
 RATION_MODIFIERS = {
@@ -194,7 +195,7 @@ class EndTurn:
 	unsealed: bool = False
 
 
-def end_turn(galaxy: Galaxy) -> EndTurn:
+def end_turn(galaxy: Galaxy, rng: random.Random | None = None) -> EndTurn:
 	"""/endturn. With ships yet to roll, the first attempt is refused; a second one forces
 	the turn to end. Control is alerted both times."""
 	if not galaxy.started:
@@ -262,6 +263,8 @@ def end_turn(galaxy: Galaxy) -> EndTurn:
 					player.id,
 				)
 			)
+
+	notices += prisoner_labour.end_of_turn(galaxy, rng or random.Random())
 
 	galaxy.turn_number += 1
 	for ship in galaxy.ships.values():

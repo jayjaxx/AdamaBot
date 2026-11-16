@@ -133,7 +133,7 @@ def card_line(galaxy: Galaxy, card: ActionCard) -> str:
 	elif card.once_per_turn:
 		use = "once per turn" + (", used this turn" if card.exhausted else "")
 	else:
-		use = "reusable"
+		use = "reusable" + (", used this turn" if card.exhausted else "")
 	tags = [use]
 	if card.affiliation_restricted:
 		tags.append(f"restricted to {_ship_name(galaxy, card.affiliation)} crew")

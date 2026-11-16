@@ -7,6 +7,7 @@ from adama.models.player import Player
 from adama.models.ship import Ship
 from adama.rules import CONTROL, PDA, GameError, Notice
 from adama.rules.players import current_ship, mention
+from adama.rules.stations import PRISONER_LABOUR
 
 RETAIN_VALUES = ("false", "true", "once")
 
@@ -102,6 +103,11 @@ def play(
 	"""/playcard: alerts (and pings) control. Single-use cards are destroyed; once-per-turn
 	cards are exhausted until /endturn."""
 	card = _in_hand(player, card_id)
+	if card.name.casefold() == PRISONER_LABOUR.casefold():
+		raise GameError(
+			f"{PRISONER_LABOUR} isn't played: use it as crew with the prisoner_labour "
+			"option of /activate or /repair."
+		)
 	if card.exhausted:
 		raise GameError(f"**{card.name}** has already been used this turn.")
 	here = current_ship(galaxy, player)

@@ -117,6 +117,7 @@ All 11 files use exactly the same keys in the same order. A trimmed example:
   - Luxury Zone: `luxury` (1 food + 1 water, +3 morale).
 - **Ration levels set to `null`** are unavailable on that ship: Low and Minimum on the four small ships. /setrationlevel rejects them. The morale roll falls through to the next lower level the ship can afford.
 - **Affiliation** is stored separately from the ID, because /defectunit, /cardaffiliation and mid-game (99-prefix) objects would otherwise break it.
+- **Prisoner Labour** cards (found by the name `Prisoner Labour`) are untrained crew: a holder adds one to /activate or /repair with the `prisoner_labour` option, for one station a turn (not Guard Quarters, and only where `team` crew is wanted). At /endturn each card that worked returns to its affiliated ship (the Vulcan) and rolls 1d6; on a 1 the station it worked riots and control is called. They can't be /playcard-ed.
 - **Action cards:** `affiliation_restricted: false` means the card can be given to anyone (Personal Bodyguard Detail, Prisoner Labour). Any card can only be *taken* from a ship by crew of its affiliated ship.
 - **alert_gm_on_damage / alert_gm_on_use:** set whenever a station has an effect the bot doesn't apply itself, e.g. "discard 3 food", a morale penalty, or a Sickbay heal. The bot posts to #control-chat and control applies the effect.
 - **Sickbays** are found by the station name `"Sickbay"`. That name is used by /wound and by end-of-turn healing.
@@ -143,7 +144,6 @@ These are all deliberate decisions:
 - Passive income and losses.
 - Research points.
 - Vulcan's Cells and Guard Quarters rules.
-- Prisoner Labour as crew.
 - Most action-card effects. /playcard just alerts control.
 - Ongoing damage effects (Team Phase discards, morale penalties for ships other than the Aegis).
 - Jumping with a damaged Jump Drive or Fuel Storage: players ask control.

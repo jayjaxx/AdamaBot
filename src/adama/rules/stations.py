@@ -5,7 +5,7 @@ import random
 from adama.models.galaxy import Galaxy
 from adama.models.resources import RESOURCE_NAMES, ResourcesContainer
 from adama.models.ship import Ship
-from adama.models.station import Station, StationMode
+from adama.models.station import Station, StationCost, StationMode
 from adama.models.unit import Unit
 from adama.rules import BRIDGE, CONTROL, GameError, Notice
 
@@ -14,6 +14,10 @@ ON_FOOT_WORDS = ("marine", "security")
 AEGIS = "Aegis"
 CELLS = "Cells"
 SICKBAY = "Sickbay"
+GUARD_QUARTERS = "Guard Quarters"
+PRISONER_LABOUR = "Prisoner Labour"
+# What a Prisoner Labour card counts as: untrained crew, like a plain Work Team.
+LABOUR_CREW = "Work Team"
 
 
 def matches(unit: Unit, keyword: str) -> bool:
@@ -140,8 +144,26 @@ def _gain(ship: Ship, gain: ResourcesContainer) -> None:
 		ship.resources.set(name, ship.resources.get(name) + gain.get(name))
 
 
-def _crew_text(crew: list[Unit]) -> str:
-	return ", ".join(f"`{u.id}` {u.name}" for u in crew) or "no crew"
+def _crew_text(crew: list[Unit], labour: str | None = None) -> str:
+	names = [f"`{u.id}` {u.name}" for u in crew] + ([labour] if labour else [])
+	return ", ".join(names) or "no crew"
+
+
+def crew_needed(station: Station, cost: StationCost, labour: bool) -> int:
+	"""How many crew units to pick, after a Prisoner Labour card fills one untrained
+	slot (refused on Guard Quarters, and where trained crew is needed)."""
+	if not labour:
+		return cost.crew_amount
+	if station.name == GUARD_QUARTERS:
+		raise GameError(f"{PRISONER_LABOUR} can't be used on Guard Quarters.")
+	if cost.crew_amount == 0:
+		raise GameError(f"{station.name} needs no crew.")
+	if cost.crew_keyword.casefold() not in LABOUR_CREW.casefold():
+		raise GameError(
+			f"{PRISONER_LABOUR} is untrained crew, and {station.name} needs "
+			f'"{cost.crew_keyword}" crew.'
+		)
+	return cost.crew_amount - 1
 
 
 def activate(
@@ -152,6 +174,7 @@ def activate(
 	by: str,
 	*,
 	late: set[str] | None = None,
+	labour: str | None = None,
 ) -> list[Notice]:
 	"""/activate: spends inputs and crew, gains outputs. While the ship's coordinates
 	are in lockdown the cog passes the galaxy's late activations: a start-of-turn
@@ -172,7 +195,10 @@ def activate(
 	gain = chosen.output if chosen else station.output
 	_check_affordable(ship, cost)
 	crew = pick_crew(
-		ship, station.input.crew_keyword, station.input.crew_amount, unit_ids
+		ship,
+		station.input.crew_keyword,
+		crew_needed(station, station.input, labour is not None),
+		unit_ids,
 	)
 
 	_pay(ship, cost)
@@ -188,7 +214,7 @@ def activate(
 	text = f"{by} activated `{station.id}` **{station.name}**" + (
 		f" ({chosen.name})" if chosen else ""
 	)
-	text += f" with {_crew_text(crew)}. Spent {_resources_text(cost)}, gained {_resources_text(gain)}."
+	text += f" with {_crew_text(crew, labour)}. Spent {_resources_text(cost)}, gained {_resources_text(gain)}."
 	if chosen and chosen.morale_modifier:
 		text += f" {chosen.morale_modifier:+d} to this turn's morale roll."
 	if station.description:
@@ -219,7 +245,12 @@ def activate(
 
 
 def repair(
-	ship: Ship, station_id: str, unit_ids: list[str] | None, by: str
+	ship: Ship,
+	station_id: str,
+	unit_ids: list[str] | None,
+	by: str,
+	*,
+	labour: str | None = None,
 ) -> list[Notice]:
 	"""/repair: pays the repair cost. The repaired station can't be used this turn."""
 	station = station_on(ship, station_id)
@@ -227,7 +258,12 @@ def repair(
 		raise GameError(f"{station.name} isn't damaged.")
 	cost = station.repair_cost
 	_check_affordable(ship, cost)
-	crew = pick_crew(ship, cost.crew_keyword, cost.crew_amount, unit_ids)
+	crew = pick_crew(
+		ship,
+		cost.crew_keyword,
+		crew_needed(station, cost, labour is not None),
+		unit_ids,
+	)
 
 	_pay(ship, cost)
 	for unit in crew:
@@ -237,7 +273,7 @@ def repair(
 	notices = [
 		Notice(
 			BRIDGE,
-			f"{by} repaired `{station.id}` **{station.name}** with {_crew_text(crew)}, "
+			f"{by} repaired `{station.id}` **{station.name}** with {_crew_text(crew, labour)}, "
 			f"spending {_resources_text(cost)}. It can be used again next turn.",
 			ship.id,
 		)

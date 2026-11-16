@@ -18,12 +18,14 @@ from adama.cogs._shared import (
 	ship_for_channel,
 	ship_here,
 )
+from adama.models.action_card import ActionCard
 from adama.models.galaxy import Galaxy
 from adama.models.resources import RESOURCE_NAMES
 from adama.models.ship import RATION_LEVELS, Ship
 from adama.models.station import Station
 from adama.perms import UserError, control_only, is_gm
 from adama.rules import Notice
+from adama.rules import prisoner_labour as labour_rules
 from adama.rules import resources as res_rules
 from adama.rules import stations as st_rules
 from adama.rules import turns as turn_rules
@@ -316,6 +318,27 @@ class ShipCommands(commands.Cog):
 
 	# Stations
 
+	async def labour_autocomplete(self, interaction: discord.Interaction, current: str):
+		"""The Prisoner Labour cards the user holds that haven't worked this turn."""
+		galaxy = self.galaxy(interaction)
+		player = galaxy.player_by_user(interaction.user.id)
+		cards = [
+			c
+			for c in (player.action_cards.values() if player else [])
+			if labour_rules.is_labour(c) and not c.exhausted
+		]
+		return choices([(f"{c.id} {c.name}", c.id) for c in cards], current)
+
+	def _labour(
+		self, interaction: discord.Interaction, galaxy: Galaxy, card_id: str | None
+	) -> ActionCard | None:
+		if card_id is None:
+			return None
+		player = (
+			None if self.gm(interaction) else galaxy.player_by_user(interaction.user.id)
+		)
+		return labour_rules.held_card(galaxy, player, card_id)
+
 	async def _with_crew(
 		self,
 		interaction: discord.Interaction,
@@ -323,6 +346,7 @@ class ShipCommands(commands.Cog):
 		repair: bool,
 		choose_crew: bool,
 		run,
+		labour: bool = False,
 	) -> None:
 		"""Runs `run(unit_ids)` now (crew picked automatically) or after a crew pick-list."""
 		if not choose_crew:
@@ -334,17 +358,19 @@ class ShipCommands(commands.Cog):
 		)
 		station = st_rules.station_on(ship, station_id)
 		cost = station.repair_cost if repair else station.input
-		if cost.crew_amount == 0:
+		# A Prisoner Labour card fills one untrained slot.
+		needed = st_rules.crew_needed(station, cost, labour)
+		if needed == 0:
 			await run(interaction, [])
 			return
 		units = st_rules.available_crew(ship, cost.crew_keyword, own_only=False)
-		if len(units) < cost.crew_amount:
+		if len(units) < needed:
 			raise UserError(
-				f'Not enough available crew matching "{cost.crew_keyword}": need {cost.crew_amount}, have {len(units)}.'
+				f'Not enough available crew matching "{cost.crew_keyword}": need {needed}, have {len(units)}.'
 			)
-		picker = CrewPicker(interaction.user.id, units, cost.crew_amount, run, galaxy)
+		picker = CrewPicker(interaction.user.id, units, needed, run, galaxy)
 		await interaction.followup.send(
-			f"Choose {cost.crew_amount} crew for `{station.id}` {station.name}:",
+			f"Choose {needed} crew for `{station.id}` {station.name}:",
 			view=picker,
 			ephemeral=True,
 		)
@@ -358,14 +384,20 @@ class ShipCommands(commands.Cog):
 		station="The station to activate",
 		mode="For stations with a choice of output",
 		choose_crew="Pick the crew yourself (otherwise untrained crew is used first)",
+		prisoner_labour="A Prisoner Labour card you hold, as one untrained crew",
 	)
-	@app_commands.autocomplete(station=station_autocomplete, mode=mode_autocomplete)
+	@app_commands.autocomplete(
+		station=station_autocomplete,
+		mode=mode_autocomplete,
+		prisoner_labour=labour_autocomplete,
+	)
 	async def activate(
 		self,
 		interaction: discord.Interaction,
 		station: str,
 		mode: str | None = None,
 		choose_crew: bool = False,
+		prisoner_labour: str | None = None,
 	):
 		async def run(i: discord.Interaction, unit_ids: list[str] | None) -> None:
 			assert i.guild is not None
@@ -373,6 +405,7 @@ class ShipCommands(commands.Cog):
 				galaxy = self.galaxy(i)
 				ship = ship_here(galaxy, i, ch.SHIP_BRIDGE, gm=self.gm(i), crew=True)
 				coords = galaxy.coordinates.get(ship.coordinates)
+				card = self._labour(i, galaxy, prisoner_labour)
 				notices = st_rules.activate(
 					ship,
 					station,
@@ -382,10 +415,17 @@ class ShipCommands(commands.Cog):
 					late=galaxy.late_activations
 					if coords is not None and coords.locked_down
 					else None,
+					labour=labour_rules.label(card) if card else None,
 				)
+				if card:
+					labour_rules.put_to_work(
+						galaxy, card, st_rules.station_on(ship, station)
+					)
 				await self.finish(i, galaxy, notices, "Activated.")
 
-		await self._with_crew(interaction, station, False, choose_crew, run)
+		await self._with_crew(
+			interaction, station, False, choose_crew, run, prisoner_labour is not None
+		)
 
 	@app_commands.command(
 		name="repair",
@@ -393,21 +433,41 @@ class ShipCommands(commands.Cog):
 		description="Repair a damaged station on your ship",
 	)
 	@app_commands.describe(
-		choose_crew="Pick the crew yourself (otherwise untrained crew is used first)"
+		choose_crew="Pick the crew yourself (otherwise untrained crew is used first)",
+		prisoner_labour="A Prisoner Labour card you hold, as one untrained crew",
 	)
-	@app_commands.autocomplete(station=station_autocomplete)
+	@app_commands.autocomplete(
+		station=station_autocomplete, prisoner_labour=labour_autocomplete
+	)
 	async def repair(
-		self, interaction: discord.Interaction, station: str, choose_crew: bool = False
+		self,
+		interaction: discord.Interaction,
+		station: str,
+		choose_crew: bool = False,
+		prisoner_labour: str | None = None,
 	):
 		async def run(i: discord.Interaction, unit_ids: list[str] | None) -> None:
 			assert i.guild is not None
 			async with self.galaxies.lock(i.guild.id):
 				galaxy = self.galaxy(i)
 				ship = ship_here(galaxy, i, ch.SHIP_BRIDGE, gm=self.gm(i), crew=True)
-				notices = st_rules.repair(ship, station, unit_ids, i.user.mention)
+				card = self._labour(i, galaxy, prisoner_labour)
+				notices = st_rules.repair(
+					ship,
+					station,
+					unit_ids,
+					i.user.mention,
+					labour=labour_rules.label(card) if card else None,
+				)
+				if card:
+					labour_rules.put_to_work(
+						galaxy, card, st_rules.station_on(ship, station)
+					)
 				await self.finish(i, galaxy, notices, "Repaired.")
 
-		await self._with_crew(interaction, station, True, choose_crew, run)
+		await self._with_crew(
+			interaction, station, True, choose_crew, run, prisoner_labour is not None
+		)
 
 	@app_commands.command(
 		name="disperse",
@@ -556,7 +616,7 @@ class ShipCommands(commands.Cog):
 		assert guild is not None
 		async with self.galaxies.lock(guild.id):
 			galaxy = self.galaxy(interaction)
-			result = turn_rules.end_turn(galaxy)
+			result = turn_rules.end_turn(galaxy, self.rng)
 			if not result.ended:
 				await self.finish(
 					interaction,

@@ -128,6 +128,8 @@ class Galaxy:
 	late_activations: set[str] = field(default_factory=set)
 	# Discord users made wolves in the pregame lobby; /startgame sets their flag.
 	lobby_wolves: set[int] = field(default_factory=set)
+	# Prisoner Labour card ID -> the station it worked this turn. Cleared at /endturn.
+	prisoner_labour: dict[str, str] = field(default_factory=dict)
 
 	coordinates: dict[str, Coordinates] = field(default_factory=dict)
 	ships: dict[str, Ship] = field(default_factory=dict)
@@ -257,6 +259,7 @@ class Galaxy:
 			"morale_results": dict(self.morale_results),
 			"late_activations": sorted(self.late_activations),
 			"lobby_wolves": sorted(self.lobby_wolves),
+			"prisoner_labour": dict(self.prisoner_labour),
 			"coordinates": {
 				c: coords.to_dict() for c, coords in self.coordinates.items()
 			},
@@ -287,6 +290,7 @@ class Galaxy:
 			morale_results=dict(data.get("morale_results", {})),
 			late_activations=set(data.get("late_activations", [])),
 			lobby_wolves=set(data.get("lobby_wolves", [])),
+			prisoner_labour=dict(data.get("prisoner_labour", {})),
 			coordinates={
 				c: Coordinates.from_dict(c, coords)
 				for c, coords in data["coordinates"].items()
