@@ -25,6 +25,7 @@ from adama.models.ship import RATION_LEVELS, Ship
 from adama.models.station import Station
 from adama.perms import UserError, control_only, is_gm
 from adama.rules import Notice
+from adama.rules import editing
 from adama.rules import prisoner_labour as labour_rules
 from adama.rules import resources as res_rules
 from adama.rules import stations as st_rules
@@ -163,6 +164,24 @@ class ShipCommands(commands.Cog):
 		elif current:
 			values += [(station_label(s), s.id) for _, s in galaxy.iter_stations()]
 		return choices(values, current)
+
+	async def damage_autocomplete(self, interaction: discord.Interaction, current: str):
+		"""As for target_autocomplete, plus the units aboard the ship whose channel this
+		is (or, once something is typed, every unit)."""
+		galaxy = self.galaxy(interaction)
+		targets = await self.target_autocomplete(interaction, current)
+		here = self.channel_ship(interaction)
+		if here is not None:
+			units = list(here.units.values()) + [
+				u for sh in here.shuttles.values() for u in sh.units.values()
+			]
+		else:
+			units = list(galaxy.iter_units()) if current else []
+		values = [
+			(f"{u.id} {u.name} (unit" + (", damaged)" if u.damaged else ")"), u.id)
+			for u in units
+		]
+		return (targets + choices(values, current))[:25]
 
 	async def station_id_autocomplete(
 		self, interaction: discord.Interaction, current: str
@@ -489,17 +508,19 @@ class ShipCommands(commands.Cog):
 
 	@app_commands.command(
 		name="damage",
-		description="Damage a station, or a random one on a ship",
+		description="Damage a station or unit, or a random station on a ship",
 		extras=GM,
 	)
-	@app_commands.describe(target="A station ID, or a ship name for a random station")
-	@app_commands.autocomplete(target=target_autocomplete)
+	@app_commands.describe(
+		target="A station or unit ID (a damaged unit is destroyed), or a ship name for a random station"
+	)
+	@app_commands.autocomplete(target=damage_autocomplete)
 	@control_only()
 	async def damage(self, interaction: discord.Interaction, target: str):
 		assert interaction.guild is not None
 		async with self.galaxies.lock(interaction.guild.id):
 			galaxy = self.galaxy(interaction)
-			done, notices = st_rules.damage(galaxy, target, self.rng)
+			done, notices = editing.damage(galaxy, target, self.rng)
 			await self.finish(interaction, galaxy, notices, done)
 
 	@app_commands.command(

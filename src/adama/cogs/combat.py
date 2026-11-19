@@ -436,16 +436,6 @@ class CombatCommands(commands.Cog):
 				fleet=True,
 			)
 
-	@app_commands.command(
-		name="damageunit",
-		description="Damage a unit (destroys it if already damaged)",
-		extras=GM,
-	)
-	@app_commands.autocomplete(unit=any_unit_autocomplete)
-	@control_only()
-	async def unit_damage(self, interaction: discord.Interaction, unit: str):
-		await self._edit_unit(interaction, editing.damage_unit, unit)
-
 	@unit.command(name="heal", description="Repair a damaged unit")
 	@app_commands.autocomplete(unit=any_unit_autocomplete)
 	@control_only()

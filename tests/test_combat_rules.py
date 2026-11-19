@@ -1,5 +1,7 @@
 """Lockdowns, observers, first responders, units on shuttles and control's editing."""
 
+import random
+
 import pytest
 from test_ship_rules import galaxy
 from test_travel_rules import aboard
@@ -452,3 +454,16 @@ def test_loading_several_units_is_all_or_nothing():
 	assert len(notices) == 1 and first in notices[0].text and second in notices[0].text
 	combat.unload_units(g, crew, aegis, [first, second])
 	assert {first, second} <= set(aegis.units)
+
+
+def test_damage_takes_stations_units_and_ships():
+	g = galaxy()
+	aegis = g.ships[AEGIS]
+	unit = next(iter(aegis.units.values()))
+	text, _ = editing.damage(g, unit.id, random.Random())
+	assert unit.damaged and "damaged" in text
+	text, _ = editing.damage(g, "0129", random.Random())
+	assert aegis.stations["0129"].damaged and "0129" in text
+	editing.damage(g, "Aegis", random.Random())
+	with pytest.raises(GameError, match="no station or unit"):
+		editing.damage(g, "4242", random.Random())

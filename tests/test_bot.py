@@ -110,7 +110,6 @@ GM_COMMANDS = {
 	"exhauststation",
 	"refreshstation",
 	"teleportunit",
-	"damageunit",
 	"ungm",
 	"lockdown",
 	"endlockdown",

@@ -1,5 +1,7 @@
 """Control's editing commands: /unit, /station and /ship."""
 
+import random
+
 from adama import ids
 from adama.models.galaxy import Galaxy
 from adama.models.player import LOCATION_BRIG
@@ -19,6 +21,7 @@ from adama.rules import (
 )
 from adama.rules.jumps import check_coordinates
 from adama.rules.shuttles import cancel_launches_for_ship
+from adama.rules import stations as st
 from adama.rules.stations import destroy_or_damage_unit, find_station
 
 
@@ -68,6 +71,17 @@ def damage_unit(galaxy: Galaxy, unit_id: str) -> tuple[str, list[Notice]]:
 	what = destroy_or_damage_unit(galaxy, unit.id)
 	assert what is not None
 	return f"{what}.", _unit_bridge(unit, f"{what}.")
+
+
+def damage(galaxy: Galaxy, target: str, rng: random.Random) -> tuple[str, list[Notice]]:
+	"""/damage: a station or unit by ID, or a random station on a ship by name.
+	Station and unit IDs never clash, so an ID is whichever of the two exists."""
+	target = target.strip()
+	if target.isdigit() and not any(s.id == target for _, s in galaxy.iter_stations()):
+		if any(u.id == target for u in galaxy.iter_units()):
+			return damage_unit(galaxy, target)
+		raise GameError(f"There is no station or unit `{target}`.")
+	return st.damage(galaxy, target, rng)
 
 
 def heal_unit(galaxy: Galaxy, unit_id: str) -> tuple[str, list[Notice]]:
